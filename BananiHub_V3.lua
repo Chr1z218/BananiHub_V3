@@ -1,3 +1,4 @@
+-- v5.18.176: Build A Boat claim timing, strict stage/treasure target selection, safe touch/reward checks, visible first-row mobile farm controls, compact live progress, and farm diagnostics. Offline validation; live Roblox test required.
 -- v5.18.175: nonblocking core movement cleanup, complete worker-state diagnostics, reduced false Auto Care waiting failures, and error history preservation. Offline validation only; Roblox execution still required.
 -- v5.18.174: safe Settings Run Tests with per-check console FAIL/PASS/SKIP, bounded runtime error history, automation/UI callback reporting; no gameplay actions triggered by tests. Live Roblox verification still required.
 -- v5.18.173: corrected stale automation issue reporting, cleared resolved loop errors, and limited Adopt Me diagnostics to active Auto Care. Offline review; live Roblox execution still required.
@@ -36,6 +37,7 @@
 -- BananiHub v5.18.38 self-bootstrap wrapper.
 -- Keeps an exact copy of the runtime body available to queue-on-teleport fallbacks.
 local __BANANIHUB_BOOT_SOURCE = [==========[
+-- v5.18.176: Build A Boat claim timing, strict stage/treasure target selection, safe touch/reward checks, visible first-row mobile farm controls, compact live progress, and farm diagnostics. Offline validation; live Roblox test required.
 -- v5.18.175: nonblocking core movement cleanup, complete worker-state diagnostics, reduced false Auto Care waiting failures, and error history preservation. Offline validation only; Roblox execution still required.
 -- v5.18.173: corrected stale automation issue reporting, cleared resolved loop errors, and limited Adopt Me diagnostics to active Auto Care. Offline review; live Roblox execution still required.
 -- v5.18.172: recover orphaned scheduler workers, validate Adopt Me task/source/progress records, and preserve existing mobile section controls. Offline verification; live Roblox testing still required.
@@ -167,7 +169,7 @@ local PlaceInfo = {
     Creator = "Loading...",
     IconImageAssetId = 0
 }
-local BANANIHUB_VERSION = "5.18.175"
+local BANANIHUB_VERSION = "5.18.176"
 
 --[[
 ======================================================================
@@ -33435,13 +33437,16 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                 local Stages=BoatNormalStages()
                 local Stage=Stages and Stages:FindFirstChild("CaveStage"..tostring(Index))
                 if not Stage then return nil end
-                return Stage:FindFirstChild("DarknessPart") or Stage:FindFirstChildWhichIsA("BasePart",true)
+                local Target=Stage:FindFirstChild("DarknessPart")
+                return Target and Target:IsA("BasePart") and Target or nil
             end
             local function BoatEndTrigger()
                 local Stages=BoatNormalStages()
                 local TheEnd=Stages and Stages:FindFirstChild("TheEnd")
                 local Chest=TheEnd and TheEnd:FindFirstChild("GoldenChest")
-                return Chest and (Chest:FindFirstChild("Trigger") or Chest:FindFirstChildWhichIsA("BasePart",true)) or nil
+                if not Chest then return nil end
+                local Target=Chest:FindFirstChild("Trigger") or Chest:FindFirstChild("Collider")
+                return Target and Target:IsA("BasePart") and Target or nil
             end
             -- Recent 2026 public routes still place the chest transition around this coordinate.
             -- It is only a stream-in seed: the live GoldenChest.Trigger replaces it as soon as it exists.
@@ -33477,7 +33482,7 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
             end
             local function BoatTouch(Part)
                 local R=Root()
-                if not R or not Part or not Part:IsA("BasePart") then return false end
+                if not R or not R.Parent or not Part or not Part.Parent or not Part:IsA("BasePart") then return false end
                 if type(firetouchinterest)=="function" then
                     local Ok=pcall(function()
                         firetouchinterest(R,Part,0)
@@ -33720,6 +33725,17 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                     local StageDestinationName="BuildABoat:"..StageSource
                     local Part=BoatStagePart(I)
                     local StageGoal=Runtime.GetDestinationWaypoint(StageDestinationName)
+                    if not StageGoal and not Part then
+                        -- On streamed mobile maps the next cave may not be present yet.
+                        -- Wait briefly for its live coordinate before failing this cycle.
+                        State.BuildABoatLastStatus="Waiting for stage "..I.." to stream"
+                        local StreamDeadline=os.clock()+2.5
+                        repeat
+                            Runtime.Movement.Guard()
+                            task.wait(0.10)
+                            Part=BoatStagePart(I)
+                        until Part or os.clock()>=StreamDeadline
+                    end
                     if Part then
                         local LiveGoal=Part.CFrame*CFrame.new(0,3,0)
                         StageGoal=select(1,Runtime.RefreshDestinationWaypoint(StageDestinationName,LiveGoal,"Build A Boat live stage",5)) or LiveGoal
@@ -33730,7 +33746,7 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                         if State.BuildABoatAutoReseat then pcall(BoatSitNearest) end
                     end
                     if not StageGoal then
-                        State.BuildABoatLastStatus="Stage "..I.." coordinate is not available"
+                        State.BuildABoatLastStatus="Stage "..I.." DarknessPart/coordinate unavailable; wait for stage to load"
                         return false
                     end
                     local Credited=false
@@ -33774,7 +33790,8 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                             if Knocked then
                                 Ok=BoatTravel(StageGoal,StageSource.."Recover") and BoatTriggerStage(Part,I)
                             end
-                            BoatTryClaimRiverGold()
+                            -- ClaimRiverResultsGold is a final-run settlement, not a stage trigger.
+                            -- Calling it here can reset pending stage credit before the chest.
                             if Ok then Credited=true; break end
                         end
                         task.wait(0.12)
@@ -33806,9 +33823,11 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                 if not BoatTravel(TreasureGoal,"BuildABoatTreasure") then return false end
                 EndPart=EndPart or BoatEndTrigger()
                 if not EndPart then
-                    local TriggerDeadline=os.clock()+1.25
+                    State.BuildABoatLastStatus="Waiting for treasure trigger to stream"
+                    local TriggerDeadline=os.clock()+2.75
                     repeat
-                        task.wait(0.05)
+                        Runtime.Movement.Guard()
+                        task.wait(0.10)
                         EndPart=BoatEndTrigger()
                     until EndPart or os.clock()>=TriggerDeadline
                 end
@@ -33852,7 +33871,9 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
 
                 -- Current public BABFT layouts award/settle river results around the end transition.
                 -- Only call the exact live-named remote when it actually exists; otherwise rely on the chest trigger.
-                BoatTryClaimRiverGold()
+                if TouchedTreasure or Player.Character~=BeforeCharacter then
+                    BoatTryClaimRiverGold()
+                end
                 if not Completed then
                     -- Give the server a short replication grace after the claim/end touch. On mobile
                     -- the character respawn or gold value can arrive a fraction later than the trigger.
@@ -33907,6 +33928,8 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                 local Status=tostring(State.BuildABoatLastStatus or "")
                 local WaitingForWorld=not Succeeded and OK and
                     (Status=="Waiting for BoatStages.NormalStages" or
+                     string.find(Status,"Waiting for stage ",1,true)==1 or
+                     Status=="Waiting for treasure trigger to stream" or
                      Status=="Waiting for previous stage credits to reset")
                 State.BuildABoatWorldWaitStreak=WaitingForWorld and
                     math.min(6,(tonumber(State.BuildABoatWorldWaitStreak) or 0)+1) or 0
@@ -33918,6 +33941,7 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
             end
             Runtime.BuildABoatCleanup=function()
                 State.BuildABoatStageESP=false
+                StopLoop("BuildABoatDashboard")
                 StopLoop("BuildABoatStageESP")
                 StopLoop("BuildABoatGoldFarm")
                 StopLoop("BuildABoatSingleRun")
@@ -33934,13 +33958,26 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                 BoatClearStageESP()
             end
             Runtime.GameProfileCheck=BoatStageStatus
+            local function BoatCompactStatus()
+                local Stage=State.BuildABoatCurrentStage or "Idle"
+                if type(Stage)=="number" then Stage=tostring(Stage).." / 10" end
+                local Running=Runtime.IsProfileLoopRunning and
+                    (Runtime.IsProfileLoopRunning("BuildABoatGoldFarm") or Runtime.IsProfileLoopRunning("BuildABoatSingleRun"))
+                local Status=tostring(State.BuildABoatLastStatus or "Ready")
+                return (Running and "Farming" or "Stopped / ready").." • Stage "..tostring(Stage)
+                    .."\nRuns: "..tostring(State.BuildABoatRuns or 0)
+                    .."  |  Gold gained: "..tostring(State.BuildABoatGoldEarned or 0)
+                    .."\n"..string.sub(Status,1,115)
+            end
 
-            local FarmCard=DetectedTab:DashboardSection(1,"Auto Farm")
-            local BoatStatus=FarmCard:CreateParagraph({Title="Build A Boat • Ready",Content=BoatStageStatus()})
-            FarmCard:CreateToggle({Name="Auto Farm",Flag="GameProfile_BuildABoat_AutoFarm",CurrentValue=false,Callback=function(V)
+            local FarmCard=DetectedTab:DashboardSection(1,"Quick Farm Controls")
+            FarmCard:CreateToggle({Name="Auto Farm • Start / Stop",Flag="GameProfile_BuildABoat_AutoFarm",CurrentValue=false,Callback=function(V)
                 if V then
                     StopLoop("BuildABoatSingleRun")
                     pcall(Runtime.ApplyGameSmartDefaults,"BuildABoat")
+                    if Runtime.BuildABoatStatusRefresh and not Runtime.IsProfileLoopRunning("BuildABoatDashboard") then
+                        StartLoop("BuildABoatDashboard",Runtime.BuildABoatStatusRefresh,1.25)
+                    end
                     State.BuildABoatLastStatus="Smart farm starting"
                     State.BuildABoatWorldWaitStreak=0
                     StartLoop("BuildABoatGoldFarm",BoatFarmCycle,function()
@@ -33949,7 +33986,10 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                         local Base=tonumber(State.BuildABoatCycleDelay) or 0.75
                         local WorldWait=tonumber(State.BuildABoatWorldWaitStreak) or 0
                         if WorldWait>0 then return math.max(Base,math.min(6,1.0+WorldWait*0.9)) end
-                        return Confirmed and math.max(0.45,Base) or math.max(1.0,Base)
+                        -- A repeated failure should not keep warping through the whole course every second.
+                        local Failures=math.max(0,tonumber(State.BuildABoatFailureStreak) or 0)
+                        local Backoff=math.min(8,math.max(1,Base)*(2^math.min(math.max(0,Failures-1),3)))
+                        return Confirmed and math.max(0.45,Base) or Backoff
                     end)
                 else
                     StopLoop("BuildABoatGoldFarm")
@@ -33959,19 +33999,49 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                     State.BuildABoatLastStatus="Stopped"
                 end
             end})
-            FarmCard:CreateButton({Name="Run One Cycle",Callback=function()
+            FarmCard:CreateButton({Name="Run Once",Callback=function()
                 Runtime.SetFlagValue("GameProfile_BuildABoat_AutoFarm",false)
                 StopLoop("BuildABoatSingleRun")
                 pcall(Runtime.ApplyGameSmartDefaults,"BuildABoat")
+                if Runtime.BuildABoatStatusRefresh and not Runtime.IsProfileLoopRunning("BuildABoatDashboard") then
+                    StartLoop("BuildABoatDashboard",Runtime.BuildABoatStatusRefresh,1.25)
+                end
+                State.BuildABoatLastStatus="Starting one treasure run"
                 StartLoop("BuildABoatSingleRun",function()
                     local Ok,Err=pcall(BoatFarmCycle)
                     if not Ok and not string.find(tostring(Err),"BANANI_CANCELLED",1,true) then Notify("Build A Boat","Cycle failed: "..tostring(Err)) end
-                    if BoatStatus and BoatStatus.Set then BoatStatus:Set({Title="Build A Boat • Ready",Content=BoatStageStatus()}) end
+                    if Runtime.BuildABoatStatusRefresh then Runtime.BuildABoatStatusRefresh() end
                     StopLoop("BuildABoatSingleRun")
                 end,999)
             end})
-            FarmCard:CreateButton({Name="Refresh Status",Callback=function() if BoatStatus and BoatStatus.Set then BoatStatus:Set({Title="Build A Boat • Ready",Content=BoatStageStatus()}) end end})
-            FarmCard:CreateParagraph({Title="Smart Settings",Content="Just turn on Auto Farm. BananiHub starts with fast stable settings, verifies each stage/treasure, then automatically speeds up after clean runs or backs off after a failed confirmation."})
+            FarmCard:CreateButton({Name="Stop Farm + Movement",Callback=function()
+                if Runtime.SetFlagValue then pcall(Runtime.SetFlagValue,"GameProfile_BuildABoat_AutoFarm",false) end
+                StopLoop("BuildABoatGoldFarm")
+                StopLoop("BuildABoatSingleRun")
+                if Runtime.CancelTravel then pcall(Runtime.CancelTravel) end
+                State.BuildABoatRunStartedAt=0
+                State.BuildABoatCurrentStage="Idle"
+                State.BuildABoatLastStatus="Stopped by user"
+                if Runtime.BuildABoatStatusRefresh then Runtime.BuildABoatStatusRefresh() end
+                Notify("Build A Boat","Farm and movement stopped. Dashboard is still active.")
+            end})
+            local BoatStatus=FarmCard:CreateParagraph({Title="Live Farm Status",Content=BoatCompactStatus()})
+            Runtime.BuildABoatStatusRefresh=function()
+                if BoatStatus and BoatStatus.Set then
+                    BoatStatus:Set({Title="Live Farm Status",Content=BoatCompactStatus()})
+                end
+            end
+            -- A passive read-only dashboard loop. This does not start gameplay or change settings.
+            StartLoop("BuildABoatDashboard",Runtime.BuildABoatStatusRefresh,1.25)
+            FarmCard:CreateButton({Name="Check Farm Setup / Errors",Callback=function()
+                local Detail=BoatStageStatus()
+                print("[BananiHub][Build A Boat] "..Detail:gsub("\n"," | "))
+                Notify("Build A Boat","Setup checked. Detailed status is in the console and below.")
+                if Runtime.BuildABoatDetails and Runtime.BuildABoatDetails.Set then
+                    Runtime.BuildABoatDetails:Set({Title="Farm Setup & Diagnostics",Content=Detail})
+                end
+            end})
+            Runtime.BuildABoatDetails=FarmCard:CreateParagraph({Title="Farm Setup & Diagnostics",Content="Tap Check Farm Setup for stage/trigger detection and the last failure."})
 
             local TravelCard=DetectedTab:DashboardSection(2,"Travel")
             local StageOptions={}; for I=1,10 do StageOptions[#StageOptions+1]="Stage "..I end; StageOptions[#StageOptions+1]="Treasure / End"
@@ -33986,8 +34056,12 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
             end})
             TravelCard:CreateButton({Name="Open Item / Treasure Scanner",Callback=function() Window:SelectTab("Visuals") end})
             TravelCard:CreateToggle({Name="Anti AFK",Flag="GameProfile_BuildABoat_AntiAFK",CurrentValue=false,Callback=function(V) Runtime.SetFlagValue("Player_AntiAFK",V) end})
-            TravelCard:CreateButton({Name="Stop Build A Boat Automation",Callback=function() Runtime.BuildABoatCleanup(); Notify("Build A Boat","Farm, launch loop and stage ESP stopped.") end})
-            TravelCard:CreateParagraph({Title="Build A Boat Profile",Content="Uses the live BoatStages/NormalStages layout and exact CaveStage1-10 DarknessPart + GoldenChest Trigger when present. It does not assume one fixed end coordinate, so map shifts are less likely to break the farm."})
+            TravelCard:CreateButton({Name="Emergency Stop All Boat Features",Callback=function()
+                Runtime.BuildABoatCleanup()
+                if Runtime.BuildABoatStatusRefresh then Runtime.BuildABoatStatusRefresh() end
+                Notify("Build A Boat","Farm, stage ESP, and travel stopped.")
+            end})
+            TravelCard:CreateParagraph({Title="Build A Boat",Content="Routes use live stage/treasure triggers when available. Unverified stage touches never count as confirmed treasure rewards."})
 
         elseif Kind == "Bloxburg" then
             local Jobs={"Pizza Delivery","Pizza Baker","Cashier","Fast Food Worker","Fisherman","Hairdresser","Janitor","Mechanic","Miner","Seller","Woodcutter","Stocker","Teacher"}
