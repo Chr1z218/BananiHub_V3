@@ -1,3 +1,12 @@
+-- v5.18.185: safety/verification pass: authoritative stage-credit normalization, mandatory reset before BABFT stage replay, deeper UI control-shape audit, safer runtime tests. Offline syntax/structural tests only; live gameplay not certified.
+-- v5.18.184: runtime health truthfulness, nil-safe diagnostics, stronger Invisible-off rig recovery, Build A Boat route/cleanup consistency, and a fresh regression audit. Offline checks only; game behavior not certified.
+-- v5.18.183: Build A Boat survival-aware stage routing and death stop, safer care checks, read-only all-controls diagnostics, Arsenal/Prison refresh, Invisible physics recovery, automation-only live activities, and fixed Blox level animation. Offline static review; gameplay not verified.
+-- v5.18.182: clearer rounded Gotham UI text, simplified aligned sections, 1.25s notch idle close, and walking-only MM2 coin routing with position-safety guards. Offline tests; live game behavior not yet verified.
+-- v5.18.181: raised safe-area notch, responsive unified icons, corrected care/rank activity symbols, status guards, resilient live polling and additional notch checks. Offline tested; live Roblox validation required.
+-- v5.18.180: first-position mobile-visible Run Tests control, immediate on-screen results, prominent touch target, accurate button-registration self-test, and console diagnostics. Offline tests; live Roblox testing required.
+-- v5.18.179: core-worker watchdog, reliable runtime issue reporting, safe diagnostics, and resilient stage/treasure lookup. Offline checks only; live Roblox validation required.
+-- v5.18.178: top-aligned compact mobile Dynamic Island; height-aware landscape scaling, proportional expanded-panel alignment and orientation reflow. Offline-tested; live device validation required.
+-- v5.18.177: mobile touch clarity and one-second continuous Build A Boat stage teleport route. Offline verification; live Roblox test required.
 -- v5.18.176: Build A Boat claim timing, strict stage/treasure target selection, safe touch/reward checks, visible first-row mobile farm controls, compact live progress, and farm diagnostics. Offline validation; live Roblox test required.
 -- v5.18.175: nonblocking core movement cleanup, complete worker-state diagnostics, reduced false Auto Care waiting failures, and error history preservation. Offline validation only; Roblox execution still required.
 -- v5.18.174: safe Settings Run Tests with per-check console FAIL/PASS/SKIP, bounded runtime error history, automation/UI callback reporting; no gameplay actions triggered by tests. Live Roblox verification still required.
@@ -37,6 +46,11 @@
 -- BananiHub v5.18.38 self-bootstrap wrapper.
 -- Keeps an exact copy of the runtime body available to queue-on-teleport fallbacks.
 local __BANANIHUB_BOOT_SOURCE = [==========[
+-- v5.18.181: raised safe-area notch, responsive unified icons, corrected care/rank activity symbols, status guards, resilient live polling and additional notch checks. Offline tested; live Roblox validation required.
+-- v5.18.180: first-position mobile-visible Run Tests control, immediate on-screen results, prominent touch target, accurate button-registration self-test, and console diagnostics. Offline tests; live Roblox testing required.
+-- v5.18.179: core-worker watchdog, reliable runtime issue reporting, safe diagnostics, and resilient stage/treasure lookup. Offline checks only; live Roblox validation required.
+-- v5.18.178: top-aligned compact mobile Dynamic Island; height-aware landscape scaling, proportional expanded-panel alignment and orientation reflow. Offline-tested; live device validation required.
+-- v5.18.177: mobile touch clarity and one-second continuous Build A Boat stage teleport route. Offline verification; live Roblox test required.
 -- v5.18.176: Build A Boat claim timing, strict stage/treasure target selection, safe touch/reward checks, visible first-row mobile farm controls, compact live progress, and farm diagnostics. Offline validation; live Roblox test required.
 -- v5.18.175: nonblocking core movement cleanup, complete worker-state diagnostics, reduced false Auto Care waiting failures, and error history preservation. Offline validation only; Roblox execution still required.
 -- v5.18.173: corrected stale automation issue reporting, cleared resolved loop errors, and limited Adopt Me diagnostics to active Auto Care. Offline review; live Roblox execution still required.
@@ -169,7 +183,7 @@ local PlaceInfo = {
     Creator = "Loading...",
     IconImageAssetId = 0
 }
-local BANANIHUB_VERSION = "5.18.176"
+local BANANIHUB_VERSION = "5.18.185"
 
 --[[
 ======================================================================
@@ -1186,13 +1200,20 @@ Runtime.GetSmartIslandStatus = function()
         -- live activity or displace a real automation in the notch.
         if S.PassiveLoops and S.PassiveLoops[Name]==true then return false end
         local E=Runtime.AutomationStatus and Runtime.AutomationStatus[Name]
-        return E and tostring(E.State or "Idle")~="Idle"
+        if not E then return false end
+        local State=string.lower(tostring(E.State or "Idle"))
+        -- Terminal states must not masquerade as running live activities.
+        return not (State=="idle" or State=="off" or State=="stopped" or State=="disabled"
+            or State=="inactive" or State=="not active" or State=="done"
+            or State=="complete" or State=="completed" or State=="finished")
     end
     local function pack(Title,Detail,Progress,StateText,IconKey,Extra)
+        local P=tonumber(Progress)
+        if not P or P~=P or math.abs(P)>=math.huge then P=0 end
         local Out={
             Title=tostring(Title or "BananiHub"),
             Detail=tostring(Detail or ""),
-            Progress=math.clamp(tonumber(Progress) or 0,0,1),
+            Progress=math.clamp(P,0,1),
             State=tostring(StateText or "Active"),
             Kind=Kind,
             IconKey=tostring(IconKey or "idle")
@@ -9910,7 +9931,7 @@ do
     HomeTab:CreateSection("⚡ Live Routes & Fresh Sessions")
     HomeTab:CreateParagraph({Title = "v"..BANANIHUB_VERSION, Content =
         "Polish build: existing game backends are preserved while UI timing, cleanup, diagnostics, status text, and mobile/desktop notch interactions are tightened."
-        .. "\nThe expanded notch waits for 1.5 seconds of real inactivity and never closes while your cursor or active touch is still over it."
+        .. "\nThe expanded notch waits for 1.25 seconds of real inactivity and never closes while your cursor or active touch is still over it."
         .. "\nLevel Up is quicker and bounded, MM2 live sampling stays non-blocking, and adaptive game status remains synchronized with the real running feature."
         .. "\nAll controls start fresh on launch unless you explicitly save/load a configuration in Settings."})
 end
@@ -10079,7 +10100,7 @@ do
     State.BloxSeaEvent = State.BloxSeaEvent or "Terrorshark"
     State.BloxStopBossDropWhenOwned = false
     State.BloxAutoNextSea = false
-    State.MM2CoinDelay = State.MM2CoinDelay or 0.22
+    State.MM2CoinDelay = math.clamp(tonumber(State.MM2CoinDelay) or 0.70,0.45,1.60)
     State.MM2AimSmooth = State.MM2AimSmooth or 6
     State.MM2AimFOV = State.MM2AimFOV or 420
     State.MM2KillAuraRadius = State.MM2KillAuraRadius or 12
@@ -10087,9 +10108,9 @@ do
     State.MM2ThreatDistance = State.MM2ThreatDistance or 70
     State.MM2SafeHeight = State.MM2SafeHeight or 85
     State.MM2IgnoreFriends = false
-    State.MM2FarmMode = State.MM2FarmMode or "Smooth Tween"
+    State.MM2FarmMode = "Walk" -- MM2 coin route previews and other default movement avoid position jumps
     State.MM2FarmSpeed = State.MM2FarmSpeed or 115
-    State.MM2BagFullAction = State.MM2BagFullAction or "Return To Lobby"
+    State.MM2BagFullAction = State.MM2BagFullAction or "Stop Farming"
     State.MM2ReturnAfterFarm = State.MM2ReturnAfterFarm == true
     State.MM2SafeCoinFarm = false
     State.MM2SafeGunPickup = false
@@ -10171,7 +10192,9 @@ do
     State.AdoptMoneyLast = tonumber(State.AdoptMoneyLast)
     State.AdoptJobTrackerStarted = tonumber(State.AdoptJobTrackerStarted) or os.clock()
 
-    State.BuildABoatStageDelay = math.clamp(tonumber(State.BuildABoatStageDelay) or 0.55,0.15,3)
+    -- Fixed dwell per stage; never let preset tuning shorten it while Auto Farm runs.
+    State.BuildABoatStageDelay = 1.5
+    State.BuildABoatFastStages = true
     State.BuildABoatCycleDelay = math.clamp(tonumber(State.BuildABoatCycleDelay) or 2.5,0.5,15)
     State.BuildABoatTreasureWait = math.clamp(tonumber(State.BuildABoatTreasureWait) or 3.5,1,8)
     State.BuildABoatTravelMode = State.BuildABoatTravelMode or "Teleport"
@@ -10299,7 +10322,7 @@ do
             State.ProfileTweenSpeed=(Tier=="Safe" and 145) or (Tier=="Balanced" and 165) or 185
             Runtime.TweenSpeed=State.ProfileTweenSpeed
         elseif K=="MM2" then
-            State.MM2CoinDelay=(Tier=="Safe" and 0.26) or (Tier=="Balanced" and 0.21) or 0.18
+            State.MM2CoinDelay=(Tier=="Safe" and 0.90) or (Tier=="Balanced" and 0.70) or 0.55
             State.MM2AttackDelay=(Tier=="Safe" and 0.15) or (Tier=="Balanced" and 0.13) or 0.11
             State.MM2AutoShootDelay=(Tier=="Safe" and 0.40) or (Tier=="Balanced" and 0.35) or 0.32
             State.MM2FarmSpeed=(Tier=="Safe" and 115) or (Tier=="Balanced" and 125) or 135
@@ -10311,10 +10334,10 @@ do
             State.AdoptCollectRadius=250
             State.AdoptTaskPriority="Closest / Fastest"
         elseif K=="BuildABoat" then
-            -- Start fast, then BoatSmartTune below learns the fastest timing that is actually
-            -- confirming stages/treasure on this server instead of blindly using one fixed delay.
+            -- Keep this consistent with the stage farm's 1.5-second survival hold.
             State.BuildABoatTravelMode="Teleport"
-            State.BuildABoatStageDelay=(Tier=="Safe" and 0.50) or (Tier=="Balanced" and 0.38) or 0.30
+            State.BuildABoatFastStages=true
+            State.BuildABoatStageDelay=1.5
             State.BuildABoatCycleDelay=(Tier=="Safe" and 1.00) or (Tier=="Balanced" and 0.75) or 0.55
             State.BuildABoatTreasureWait=(Tier=="Safe" and 4.25) or (Tier=="Balanced" and 3.75) or 3.25
             State.BuildABoatClaimRiverGold=true
@@ -10444,7 +10467,7 @@ Runtime.PremiumPolish={
     Version=BANANIHUB_VERSION,
     -- These values are consumed by live UI behavior, not just diagnostics.
     PlatformAwareResponsiveLayout=true,
-    ExpandedAutoCloseSeconds=1.5,
+    ExpandedAutoCloseSeconds=1.25,
 
 }
 
@@ -10520,6 +10543,24 @@ Runtime.GetIssueReport=function(MaxRows)
             end
         end
     end
+    for Name,Definition in pairs(Runtime.CoreActionDefinitions or {}) do
+        if Definition and Runtime.CoreActionLoops and Definition.Token==Runtime.CoreActionLoops[Name] then
+            local Thread=Runtime.CoreActionThreads and Runtime.CoreActionThreads[Name]
+            local Age=os.clock()-(tonumber(Definition.StartedAt) or os.clock())
+            if (type(Thread)=="thread" and coroutine.status(Thread)=="dead")
+                or (Thread==nil and Age>=7) then
+                Add("Core "..tostring(Name),"Worker missing; recovery pending")
+            end
+        end
+    end
+    for Name,Reason in pairs(Runtime.CoreActionErrors or {}) do
+        if Runtime.CoreActionDefinitions and Runtime.CoreActionDefinitions[Name] and Reason then
+            Add("Core "..tostring(Name),Reason)
+        end
+    end
+    for Name,Reason in pairs(Runtime.CoreWorkerFatal or {}) do
+        Add("Core "..tostring(Name),Reason)
+    end
     if Runtime.Movement then
         local Owner=Runtime.Movement.Owner
         if Owner and type(Owner)~="string" then Add("Movement","Invalid owner type") end
@@ -10565,7 +10606,7 @@ Runtime.RunProfileSelfTest=function()
     Test("Smart notch status",type(Runtime.GetDynamicIslandDisplayStatus)=="function" or type(Runtime.GetSmartIslandStatus)=="function",true)
     Test("Premium metadata",type(Runtime.PremiumPolish)=="table" and tostring(Runtime.PremiumPolish.Version)==tostring(BANANIHUB_VERSION),true)
     Test("Responsive layout enabled",Runtime.PremiumPolish.PlatformAwareResponsiveLayout==true,false)
-    Test("Expanded notch timeout",tonumber(Runtime.PremiumPolish.ExpandedAutoCloseSeconds)==1.5,false)
+    Test("Expanded notch timeout",tonumber(Runtime.PremiumPolish.ExpandedAutoCloseSeconds)==1.25,false)
     Test("Detected profile module",Runtime.GameModules~=nil and Runtime.GameModules[Profile]~=nil,true,Profile)
     if Profile=="BloxFruits" then
         local Data=Player:FindFirstChild("Data")
@@ -10589,12 +10630,22 @@ Runtime.RunProfileSelfTest=function()
         Test("MM2 current-map resolver",type(Runtime.MM2GetCurrentMap)=="function",true)
         Test("MM2 loaded-map teleport",type(Runtime.MM2LoadedMapOptions)=="function" and type(Runtime.MM2ResolveLoadedMap)=="function" and type(Runtime.MM2TeleportToSpecificMap)=="function",true)
         Test("MM2 Coin ESP cleanup",type(Runtime.MM2CoinESPCleanup)=="function",true)
+        Test("MM2 walking-only coin mode",Runtime.MM2CoinWalkOnly==true,true)
+        local MM2Delay=tonumber(State.MM2CoinDelay)
+        Test("MM2 normal-speed coin delay",MM2Delay~=nil and MM2Delay>=0.45 and MM2Delay<=1.60,false)
         Test("MM2 Fling cleanup",type(Runtime.MM2StopFling)=="function",true)
     elseif Profile=="AdoptMe" then
         Test("Adopt compatibility check",type(Runtime.GameProfileCheck)=="function",true)
-        Test("Adopt cleanup",type(Runtime.AdoptCleanup)=="function",false)
+        local Care=Runtime.AdoptBackend
+        Test("Adopt Auto Care backend",type(Care)=="table" and type(Care.StartSmartFarm)=="function"
+            and type(Care.TaskStep)=="function" and type(Care.ActiveTasks)=="function",true)
+        Test("Adopt need reporting",type(Care)=="table" and type(Care.Stats)=="function"
+            and type(Care.Check)=="function",true)
+        Test("Adopt cleanup",type(Runtime.AdoptCleanup)=="function",true)
     elseif Profile=="BuildABoat" then
         Test("Build A Boat compatibility check",type(Runtime.GameProfileCheck)=="function",true)
+        Test("Build A Boat cleanup and dashboard",type(Runtime.BuildABoatCleanup)=="function"
+            and type(Runtime.BuildABoatStatusRefresh)=="function",true)
         Test("BoatStages loaded",workspace:FindFirstChild("BoatStages")~=nil,false)
     elseif Profile=="Bloxburg" then
         Test("Bloxburg compatibility check",type(Runtime.GameProfileCheck)=="function",true)
@@ -10602,10 +10653,16 @@ Runtime.RunProfileSelfTest=function()
         Test("Basketball compatibility check",type(Runtime.GameProfileCheck)=="function",true)
     elseif Profile=="Arsenal" then
         Test("Arsenal compatibility check",type(Runtime.GameProfileCheck)=="function",true)
+        Test("Arsenal weapon inspect",type(Runtime.ArsenalWeaponInfo)=="function",true)
+        Test("Arsenal restore / cleanup",type(Runtime.ArsenalRestoreValueMods)=="function"
+            and type(Runtime.ArsenalDisconnectWeaponWatch)=="function",true)
         Test("Visual engine",Runtime.VisualEngine~=nil,true)
     elseif Profile=="PrisonLife" then
         Test("Prison compatibility check",type(Runtime.GameProfileCheck)=="function",true)
-        Test("Current armory normalizer",type(Runtime.NormalizePrisonWeaponSelection)=="function",false)
+        Test("Prison armory backend",type(Runtime.PrisonWeaponOptions)=="function"
+            and type(Runtime.PrisonSmartArmoryRun)=="function",true)
+        Test("Prison weapon cleanup",type(Runtime.PrisonRestoreGunMods)=="function",true)
+        Test("Current armory normalizer",type(Runtime.NormalizePrisonWeaponSelection)=="function",true)
     elseif Profile=="MVS" then
         Test("MVS compatibility check",type(Runtime.GameProfileCheck)=="function",true)
     else
@@ -10889,11 +10946,15 @@ Runtime.GameModules = Runtime.GameModules or {}
                 State.LoopWorkerRecovery[Name]=Budget
                 if Budget.Count<3 then
                     Budget.Count+=1
+                    if type(Runtime.ReportProblem)=="function" then
+                        Runtime.ReportProblem("Profile worker: "..Name,"Worker unexpectedly stopped; recovery attempt "..tostring(Budget.Count).."/3")
+                    end
                     Runtime.SetAutomationState(Name,"Recovering","Worker ended unexpectedly • restarting")
                     StartLoop(Name,Definition.Step,Definition.Delay)
                     Count+=1
                 else
                     Runtime.SetAutomationState(Name,"Error","Worker failed repeatedly • turn feature off and on")
+                    if type(Runtime.ReportProblem)=="function" then Runtime.ReportProblem("Profile worker: "..Name,"Worker exited repeatedly; restart manually") end
                     State.LoopDefinitions[Name]=nil
                 end
             end
@@ -10905,7 +10966,14 @@ Runtime.GameModules = Runtime.GameModules or {}
             task.wait(3)
             if not Unloaded then
                 local OK,Err=pcall(Runtime.RecoverDeadProfileWorkers)
-                if not OK then Runtime.LastWorkerRecoveryError=tostring(Err) end
+                if not OK then
+                    Runtime.LastWorkerRecoveryError=tostring(Err)
+                    if type(Runtime.ReportProblem)=="function" then Runtime.ReportProblem("Profile worker watchdog",Err) end
+                end
+                if type(Runtime.RecoverDeadCoreWorkers)=="function" then
+                    local CoreOK,CoreErr=pcall(Runtime.RecoverDeadCoreWorkers)
+                    if not CoreOK and type(Runtime.ReportProblem)=="function" then Runtime.ReportProblem("Core worker watchdog",CoreErr) end
+                end
             end
         end
     end)
@@ -26937,7 +27005,15 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                             end)
                         end
                     end
-                    RR.Anchored=S.RealRootAnchored==true
+                    -- A saved true flag can be stale after invisible parked the root.
+                    for _,Part in ipairs(Real:GetDescendants()) do
+                        if Part:IsA("BasePart") then Part.Anchored=false end
+                    end
+                    RR.Anchored=false
+                    RH.PlatformStand=false
+                    RH.Sit=false
+                    RH.AutoRotate=true
+                    pcall(function() RH:ChangeState(Enum.HumanoidStateType.GettingUp) end)
                     Runtime.MM2IYRestartAnimate(Real)
                     if Clone and Clone~=Real then pcall(function() Clone:Destroy() end) end
                     if S.RealArchivable~=nil then Real.Archivable=S.RealArchivable end
@@ -26945,6 +27021,14 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
 
                 if not Ok then
                     S.Restoring=false
+                    pcall(function()
+                        if Real and Real.Parent then
+                            local RH=Real:FindFirstChildOfClass("Humanoid")
+                            local RR=Real:FindFirstChild("HumanoidRootPart")
+                            if RR then RR.Anchored=false end
+                            if RH then RH.PlatformStand=false; RH.Sit=false; RH.AutoRotate=true end
+                        end
+                    end)
                     Runtime.LastInvisibleError="visible restore failed: "..tostring(Err)
                     if not Silent then Notify("Invisible",Runtime.LastInvisibleError) end
                     return false
@@ -30143,6 +30227,16 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                 end
                 return false
             end
+            Runtime.MM2CoinWalkOnly=true
+            local function MM2CoinMovementReady()
+                if State.MM2Invisible==true then return false,"Turn off Invisible to use normal walking" end
+                if FlyEnabled then return false,"Turn off Fly before collecting coins" end
+                if NoclipEnabled then return false,"Turn off Noclip before collecting coins" end
+                if FastWalkEnabled then return false,"Turn off Fast Walk before collecting coins" end
+                if FreezeEnabled then return false,"Turn off Freeze before collecting coins" end
+                if AutoWalkEnabled then return false,"Turn off Auto Walk before collecting coins" end
+                return true,nil
+            end
             local function MM2MoveToObject(Object,Offset,Mode,Generation)
                 local Target=GetRoot(Object)
                 if not Target then return false end
@@ -30181,6 +30275,18 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                 if not Me or not Target then return false end
 
                 local ExactCoin=ResolveCoinObject(Object)
+                -- Automatic coins use physical contact after ordinary path-based walking.
+                -- Do not write CFrame, force proxy movement, or inject a remote touch.
+                if ExactCoin and Mode=="Walk" then
+                    if (Me.Position-Target.Position).Magnitude>5.5 then return false end
+                    local CoinHumanoid=Humanoid()
+                    if CoinHumanoid and CoinHumanoid.Health>0 then
+                        -- A short ordinary walk nudges the collision capsule into the coin.
+                        CoinHumanoid:MoveTo(Target.Position)
+                    end
+                    task.wait(0.24)
+                    return Running()
+                end
                 if State.MM2Invisible and ExactCoin and Runtime.MM2TryProxyCoinPickup then
 
                     return Runtime.MM2TryProxyCoinPickup(10.0,ExactCoin)
@@ -30217,7 +30323,9 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                         end
                     end
                 else
-                    pcall(function() Me.CFrame=Target.CFrame end)
+                    -- A position snap here caused enormous instantaneous travel when
+                    -- the executor lacked firetouchinterest. Never snap for coins.
+                    if not ExactCoin then pcall(function() Me.CFrame=Target.CFrame end) end
                 end
                 if not Running() or not Object.Parent then return false end
                 local Prompt=Object:FindFirstChildWhichIsA("ProximityPrompt",true)
@@ -30231,7 +30339,8 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                 local Before=select(1,BagNumbers())
                 local StartMap=CurrentMap()
                 local function Running()
-                    return ActionValid(Token,Owner) and Runtime.Movement.Valid()
+                    local Ready=MM2CoinMovementReady()
+                    return Ready and ActionValid(Token,Owner) and Runtime.Movement.Valid()
                         and not Runtime.MM2FlingMovementBusy
                         and not Runtime.MM2ManualTravelBusy
                         and (not Generation or Runtime.MM2FarmRunActive(Generation))
@@ -30256,8 +30365,14 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                         local Index=table.find(Route,Coin); if Index then table.remove(Route,Index) end
                         return false,"stale"
                     end
-                    TouchMM2Object(Coin,Mode,Generation,Running)
-                    local Deadline=os.clock()+1.25
+                    -- Use the humanoid's normal Walk/Smart Route instead of high-speed
+                    -- tweening, underground travel or teleportation.
+                    local Approached=TouchMM2Object(Coin,"Walk",Generation,Running)
+                    if not Approached then
+                        Runtime.MM2FailedCoins[Coin]=os.clock()
+                        return false,"unreachable"
+                    end
+                    local Deadline=os.clock()+1.45
                     repeat
                         if not Running() then return false,"cancelled" end
                         if Collected() then
@@ -30891,10 +31006,8 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
             AimCard:CreateToggle({Name="Protect Friends",Flag="GameProfile_MM2_IgnoreFriends",CurrentValue=State.MM2IgnoreFriends,Callback=function(V) State.MM2IgnoreFriends=V end})
 
             local CoinCard=DetectedTab:DashboardSection(2,"Coins")
-            CoinCard:CreateDropdown({Name="Travel Mode",Options={"Teleport","Smooth Tween","Underground Tween","Walk"},CurrentOption={State.MM2FarmMode},Callback=function(O) State.MM2FarmMode=type(O)=="table" and O[1] or O end})
-            CoinCard:CreateSlider({Name="Farm Speed",Range={35,300},Increment=5,Suffix=" studs/s",CurrentValue=State.MM2FarmSpeed,Callback=function(V) State.MM2FarmSpeed=V end})
-            CoinCard:CreateParagraph({Title="Smart Route",Content="Coin Farm only targets coins inside the live round map, rebuilds its route when the map changes, and confirms each pickup before moving on. Walk uses Smart Route; the faster movement modes stay direct."})
-            CoinCard:CreateSlider({Name="Coin Delay",Range={0.08,0.8},Increment=0.02,Suffix=" s",CurrentValue=State.MM2CoinDelay,Callback=function(V) State.MM2CoinDelay=V end})
+            CoinCard:CreateParagraph({Title="Normal Walking",Content="Auto Collect Coins uses ordinary Walk/Smart Route at your normal movement speed. No fast tweens, underground positions or teleport jumps. Turn off Fly, Noclip, Fast Walk and Invisible first. Unreachable coins are skipped, not teleported to."})
+            CoinCard:CreateSlider({Name="Pause Between Coins",Range={0.45,1.60},Increment=0.05,Suffix=" s",CurrentValue=State.MM2CoinDelay,Callback=function(V) State.MM2CoinDelay=math.clamp(tonumber(V) or 0.70,0.45,1.60) end})
             CoinCard:CreateDropdown({Name="When Bag Is Full",Options={"Stop Farming","Return To Lobby","Reset Character"},CurrentOption={State.MM2BagFullAction},Callback=function(O) State.MM2BagFullAction=type(O)=="table" and O[1] or O end})
             CoinCard:CreateToggle({Name="Avoid Murderer While Farming",Flag="GameProfile_MM2_SafeCoins",CurrentValue=State.MM2SafeCoinFarm,Callback=function(V) State.MM2SafeCoinFarm=V end})
             CoinCard:CreateToggle({Name="Show Coin-to-Coin Route",Flag="GameProfile_MM2_CoinPath",CurrentValue=State.MM2CoinPath,Callback=function(V)
@@ -30942,8 +31055,9 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                         if State.MM2SafeCoinFarm then
                             local _,Danger=NearestThreat()
                             if Danger<=(tonumber(State.MM2ThreatDistance) or 70) then
-                                Runtime.SetAutomationState("MM2Coins","Recovering","Murderer too close • escaping")
-                                SmartEscape()
+                                -- Fleeing by a high-speed tween caused another irregular position jump.
+                                -- Pause coin routing until danger is gone rather than moving unnaturally.
+                                Runtime.SetAutomationState("MM2Coins","Waiting","Murderer nearby • coin walk paused")
                                 return
                             end
                         end
@@ -30959,9 +31073,14 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                             Runtime.SetAutomationState("MM2Coins","Waiting","Gun pickup in progress • resuming coins next")
                             return
                         end
+                        local Ready,Reason=MM2CoinMovementReady()
+                        if not Ready then
+                            Runtime.SetAutomationState("MM2Coins","Waiting",Reason)
+                            return
+                        end
                         local Coin=NextCoin()
                         if Coin then
-                            Runtime.SetAutomationState("MM2Coins","Traveling","Traveling to next coin")
+                            Runtime.SetAutomationState("MM2Coins","Traveling","Walking to next coin")
                             local Collected,Why=CollectMM2CoinSerialized(Coin,nil,Generation)
                             if Runtime.MM2FarmRunActive(Generation) then
                                 if Why=="fling busy" or Why=="manual travel busy" or Why=="gun busy" then
@@ -30981,7 +31100,7 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                                     Runtime.SetAutomationState("MM2Coins","Working","Coin bag full • applying selected action")
                                     return
                                 end
-                                Runtime.SetAutomationState("MM2Coins",Collected and "Working" or "Recovering",Collected and "Coin collected • continuing route" or "Coin did not register • skipping it temporarily")
+                                Runtime.SetAutomationState("MM2Coins",Collected and "Working" or "Recovering",Collected and "Coin collected • walking to next" or (Why=="unreachable" and "No walkable path • skipping coin" or "Coin did not register • skipping it temporarily"))
                             end
                         else
                             Runtime.SetAutomationState("MM2Coins","Waiting","Waiting for coin spawn")
@@ -31004,7 +31123,9 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
             CoinCard:CreateButton({Name="Collect Next Coin Once",Callback=function()
                 local Coin=NextCoin()
                 if Coin then
-                    if not CollectMM2CoinSerialized(Coin,State.MM2FarmMode) then Notify("MM2","That coin did not register; trying a different coin next.") end
+                    local Ready,Reason=MM2CoinMovementReady()
+                    if not Ready then Notify("MM2",Reason); return end
+                    if not CollectMM2CoinSerialized(Coin,"Walk") then Notify("MM2","Coin wasn't reachable or didn't register; choose another coin.") end
                 else Notify("MM2","No collectible coin was detected in the active map.") end
             end})
 
@@ -32365,7 +32486,7 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                     elseif not EnsureCarePet() then
                         SetStatus("Waiting for a confirmed equipped owned pet"); return false
                     end
-                    if os.clock()-(tonumber(State.AdoptTaskLastProgressAt) or os.clock())>=16 then
+                    if os.clock()-(tonumber(State.AdoptTaskLastProgressAt) or os.clock())>=12 then
                         if not State.AdoptTaskRetried then
                             State.AdoptTaskRetried=true
                             State.AdoptTaskLastProgressAt=os.clock()
@@ -32402,20 +32523,21 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                         SetStatus("Working on "..Name.." movement"); return MovementNeed(Name)
                     end
                     if Name=="choose" then
-                        -- The new advanced Choose need requires a user choice. Never
-                        -- treat simply opening the menu as verified completion.
-                        if ActivateVisibleGui({"choose","pick","select"}) then
-                            SetStatus("Choose need opened • select one option in Adopt Me")
-                        else
-                            SetStatus("Choose need pending • open your pet's Needs menu")
-                        end
-                        State.AdoptTaskNextActionAt=os.clock()+4
+                        -- Advanced choice is not equivalent to a click: only a confirmed
+                        -- disappearance from the live need source can count as complete.
+                        local Opened=ActivateVisibleGui({"choose","pick","select"})
+                        State.AdoptTaskDirty=true
+                        State.AdoptTaskNextActionAt=os.clock()+2
+                        SetStatus(Opened and "Choose menu opened • pick a free option; verification pending"
+                            or "Choose need requires an option; open pet Needs menu")
                         return false
                     end
                     if Name=="pet_me" then
-                        ActivateVisibleGui({"pet me","needs","pet"})
-                        SetStatus("Pet Me needs a swipe in the pet interaction menu")
-                        State.AdoptTaskNextActionAt=os.clock()+4
+                        local Opened=ActivateVisibleGui({"pet me","needs","pet"})
+                        State.AdoptTaskDirty=true
+                        State.AdoptTaskNextActionAt=os.clock()+2
+                        SetStatus(Opened and "Pet Me menu opened • swipe interaction required"
+                            or "Pet Me requires a pet interaction/swipe; not verified")
                         return false
                     end
                     local Location=NeedLocations[Name]
@@ -33229,6 +33351,7 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                         .."\nQueue: "..(#Queue>0 and table.concat(Queue," → ") or "Empty")
                         .."\nSource: "..tostring(State.AdoptTaskSource or "Waiting")
                         .."\nAction: "..Action
+                        .."\nNext attempt: "..string.format("%.1fs",math.max(0,(tonumber(State.AdoptTaskNextActionAt) or 0)-os.clock()))
                         .."\nInventory: "..tostring(State.AdoptInventoryStatus or "Not scanned")
                         .."\nSession: "..tostring(State.AdoptSessionNeeds or 0).." needs • "..Minutes.." min"
                 end
@@ -33245,6 +33368,8 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                         .."\nEquipped care pet: "..(PetUnique and "Ready" or "None detected")
                         .."\nTeam action: "..(HasTeam and "Ready" or "UI fallback")
                         .."\nLocation action: "..(HasLocation and "Ready" or "world-object fallback")
+                        .."\nTask source: "..tostring(State.AdoptTaskSource or "not scanned")
+                        .."\nTask last action: "..tostring(State.AdoptCurrentAction or "waiting")
                         .."\nFurniture care: "..(HasFurniture and "Ready" or "prompt fallback")
                         .."\nJob action: "..(HasJob and "Ready" or "prompt fallback")
                 end
@@ -33262,6 +33387,9 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                 API.EquippedPet=Inventory.EquippedPet; API.FirstCarePet=Inventory.FirstCarePet
                 return API
             end)()
+            -- Expose the real backend to read-only runtime checks. This does not
+            -- start care or trigger remote actions by itself.
+            Runtime.AdoptBackend=Adopt
             Runtime.AdoptCleanup=function() Adopt.StopAll() end
             Runtime.GameProfileCheck=Adopt.Check
             TrackConnection(Player.CharacterAdded:Connect(function()
@@ -33437,7 +33565,7 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                 local Stages=BoatNormalStages()
                 local Stage=Stages and Stages:FindFirstChild("CaveStage"..tostring(Index))
                 if not Stage then return nil end
-                local Target=Stage:FindFirstChild("DarknessPart")
+                local Target=Stage:FindFirstChild("DarknessPart") or Stage:FindFirstChild("DarknessPart",true)
                 return Target and Target:IsA("BasePart") and Target or nil
             end
             local function BoatEndTrigger()
@@ -33446,6 +33574,7 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                 local Chest=TheEnd and TheEnd:FindFirstChild("GoldenChest")
                 if not Chest then return nil end
                 local Target=Chest:FindFirstChild("Trigger") or Chest:FindFirstChild("Collider")
+                    or Chest:FindFirstChild("Trigger",true) or Chest:FindFirstChild("Collider",true)
                 return Target and Target:IsA("BasePart") and Target or nil
             end
             -- Recent 2026 public routes still place the chest transition around this coordinate.
@@ -33454,6 +33583,61 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
             local function BoatTravel(CF,Source)
                 if typeof(CF)~="CFrame" then return false end
                 local SourceName=tostring(Source or "BuildABoat")
+                -- The course is a coordinate route, not a pathfinding mission. Warp the
+                -- local character directly at each stage, and verify arrival before touch.
+                -- This does not guarantee the server awards stage/treasure credit.
+                if State.BuildABoatFastStages and
+                    (string.match(SourceName,"^BuildABoatStage%d+") or SourceName=="BuildABoatTreasure") then
+                    -- Try only once per stage: repeating a rejected warp can cause a death loop.
+                    for Try=1,1 do
+                        Runtime.Movement.Guard()
+                        local R=Root()
+                        local H=Humanoid()
+                        if not R or not R.Parent or not H or H.Health<=0 then return false end
+                        -- Temporary LOCAL support is for avoiding an immediate fall; it
+                        -- cannot force the server to accept a skipped stage.
+                        if State.BuildABoatTemporarySupport then
+                            pcall(function() State.BuildABoatTemporarySupport:Destroy() end)
+                            State.BuildABoatTemporarySupport=nil
+                        end
+                        local Support=Instance.new("Part")
+                        Support.Name="BananiHub_StageLandingSupport"
+                        Support.Anchored=true
+                        Support.CanCollide=true
+                        Support.CanTouch=false
+                        Support.Transparency=1
+                        Support.Size=Vector3.new(8,1,8)
+                        Support.CFrame=CF*CFrame.new(0,-4,0)
+                        Support.Parent=workspace
+                        State.BuildABoatTemporarySupport=Support
+                        -- Never leave invisible collidable platforms behind after
+                        -- cancellation, a failed warp, or a lost scheduler thread.
+                        task.delay(2.5,function()
+                            if State.BuildABoatTemporarySupport==Support then
+                                State.BuildABoatTemporarySupport=nil
+                            end
+                            if Support and Support.Parent then pcall(function() Support:Destroy() end) end
+                        end)
+                        local Success=pcall(function()
+                            H.Sit=false
+                            R.CFrame=CF
+                            R.AssemblyLinearVelocity=Vector3.zero
+                            R.AssemblyAngularVelocity=Vector3.zero
+                        end)
+                        if not Success then return false end
+                        task.wait(0.25)
+                        Runtime.Movement.Guard()
+                        local Now=Root()
+                        local Alive=Humanoid()
+                        if Alive and Alive.Health>0 and Player.Character and Now and Now.Parent
+                            and (Now.Position-CF.Position).Magnitude<=24 then
+                            return true
+                        end
+                        State.BuildABoatLastStatus="Position rejected or character died at "..SourceName
+                        if not Alive or Alive.Health<=0 then State.BuildABoatDiedThisRun=true end
+                    end
+                    return false
+                end
                 local Options={
                     Mode=State.BuildABoatTravelMode,
                     Speed=math.max(tonumber(State.ProfileTweenSpeed) or 140,180),
@@ -33491,25 +33675,31 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                     end)
                     if Ok then return true end
                 end
-                -- Executor-independent fallback: physically sweep the character root through the
-                -- trigger for a frame. Stage/treasure verification still decides whether it counted.
-                local Ok=pcall(function()
-                    local Original=R.CFrame
-                    local OffsetY=math.clamp((tonumber(Part.Size.Y) or 1)*0.20,0.15,0.70)
-                    R.CFrame=Part.CFrame*CFrame.new(0,OffsetY,0)
-                    R.AssemblyLinearVelocity=Vector3.zero
-                    RunService.Heartbeat:Wait()
-                    R.CFrame=Part.CFrame*CFrame.new(0,-OffsetY,0)
-                    RunService.Heartbeat:Wait()
-                    if (R.Position-Part.Position).Magnitude>8 then R.CFrame=Original end
-                end)
-                return Ok
+                -- Directly placing the root inside a stage wall can kill the character.
+                -- Without a supported touch signal, wait for an actual movement/contact event
+                -- and let replicated stage credit determine success.
+                return false
             end
             local function BoatStageValue(Index)
                 local OtherData=Player:FindFirstChild("OtherData")
                 local Value=OtherData and OtherData:FindFirstChild("Stage"..tostring(math.max(0,(tonumber(Index) or 1)-1)))
-                if Value and Value:IsA("ValueBase") then return Value,tostring(Value.Value or "") end
-                return nil,nil
+                if not Value or not Value:IsA("ValueBase") then return nil,nil end
+                -- Stage0..9 can be numbers, booleans or strings depending on the server.
+                -- Zero / false / an empty string are NOT proof of a passed checkpoint.
+                -- Old logic converted numeric zero into the nonempty string "0" and
+                -- could count it as stage credit, then visit the chest and die.
+                local Raw=Value.Value
+                if type(Raw)=="boolean" then return Value,Raw and "true" or "" end
+                if type(Raw)=="number" then
+                    if Raw~=Raw or Raw<=0 then return Value,"" end
+                    return Value,tostring(Raw)
+                end
+                local Text=tostring(Raw or ""):match("^%s*(.-)%s*$") or ""
+                local Lower=string.lower(Text)
+                if Lower=="" or Lower=="0" or Lower=="false" or Lower=="nil" or Lower=="none" then
+                    return Value,""
+                end
+                return Value,Text
             end
             local function BoatWaitForStageReset(MaxWait)
                 local HasReplicatedValues=false
@@ -33541,11 +33731,12 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                 BoatTouch(Part)
                 if not Value then
                     task.wait(State.BuildABoatStageDelay)
-                    -- An attempted touch is not a verified server award. Keep the
-                    -- route usable but require independent treasure proof at the end.
+                    -- Without replicated stage values, a touch attempt is not proof.
+                    -- Continue only with a non-destructive trigger available; the
+                    -- final treasure/reward check still decides if any run succeeded.
                     if not Part.Parent then return false,"stage trigger unloaded" end
                     State.BuildABoatUnverifiedStages=(tonumber(State.BuildABoatUnverifiedStages) or 0)+1
-                    return true,"stage touched; credit not exposed"
+                    return true,"stage unverified; treasure reward required"
                 end
                 local Deadline=os.clock()+math.max(State.BuildABoatStageDelay,0.45)
                 repeat
@@ -33590,6 +33781,8 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                     .."\nGolden chest trigger: "..(EndReady and "Ready" or "Not loaded")
                     .."\nRiver gold remote: "..(Claim and Claim.ClassName or "Not detected")
                     .."\nStage credit values: "..((Player:FindFirstChild("OtherData") and "Available") or "Not exposed")
+                    .."\nStage-credit rejections: "..tostring(State.BuildABoatNoCreditStreak or 0)
+                    .."\nNote: Local teleports cannot guarantee server reward credit."
                     .."\nRuns this session: "..tostring(State.BuildABoatRuns or 0)
                     .." • retries: "..tostring(State.BuildABoatRetries or 0).." • failed stages: "..tostring(State.BuildABoatFailedStages or 0)
                     .."\nCurrent stage: "..tostring(State.BuildABoatCurrentStage or "Idle")
@@ -33654,7 +33847,7 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                 local P=BoatStagePart(I)
                 local Goal=Runtime.GetDestinationWaypoint(DestinationName)
                 if P then
-                    local LiveGoal=P.CFrame*CFrame.new(0,3,0)
+                    local LiveGoal=P.CFrame*CFrame.new(0,3,math.max(3,math.min(8,P.Size.Z*0.5+2)))
                     Goal=select(1,Runtime.RefreshDestinationWaypoint(DestinationName,LiveGoal,"Build A Boat live stage",5)) or LiveGoal
                 end
                 if not Goal then Notify("Build A Boat","That stage coordinate is not available."); return false end
@@ -33685,7 +33878,9 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                     -- Two clean runs are enough evidence to shave a little wait. Floors protect
                     -- stage credit / chest replication from becoming faster than the server.
                     if State.BuildABoatSuccessStreak>=2 then
-                        State.BuildABoatStageDelay=math.max(0.24,(tonumber(State.BuildABoatStageDelay) or 0.35)-0.025)
+                        if not State.BuildABoatFastStages then
+                            State.BuildABoatStageDelay=math.max(0.24,(tonumber(State.BuildABoatStageDelay) or 0.35)-0.025)
+                        end
                         State.BuildABoatCycleDelay=math.max(0.45,(tonumber(State.BuildABoatCycleDelay) or 0.75)-0.04)
                         State.BuildABoatTreasureWait=math.max(2.80,(tonumber(State.BuildABoatTreasureWait) or 3.50)-0.08)
                     end
@@ -33694,7 +33889,9 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                     State.BuildABoatSuccessStreak=0
                     -- Back off quickly after an unconfirmed stage/treasure; this is faster overall
                     -- than repeatedly failing an over-aggressive route.
-                    State.BuildABoatStageDelay=math.min(0.70,(tonumber(State.BuildABoatStageDelay) or 0.35)+0.055)
+                    if not State.BuildABoatFastStages then
+                        State.BuildABoatStageDelay=math.min(0.70,(tonumber(State.BuildABoatStageDelay) or 0.35)+0.055)
+                    end
                     State.BuildABoatCycleDelay=math.min(1.60,(tonumber(State.BuildABoatCycleDelay) or 0.75)+0.10)
                     State.BuildABoatTreasureWait=math.min(5.75,(tonumber(State.BuildABoatTreasureWait) or 3.50)+0.30)
                 end
@@ -33706,6 +33903,7 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
             local function BoatFarmCycleRaw()
                 Runtime.Movement.Guard()
                 State.BuildABoatRunStartedAt=os.clock()
+                State.BuildABoatDiedThisRun=false
                 State.BuildABoatUnverifiedStages=0
                 local RunGoldStart=BoatGoldAmount()
                 local Stages=BoatNormalStages()
@@ -33713,6 +33911,9 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                     State.BuildABoatLastStatus="Waiting for BoatStages.NormalStages"
                     return false
                 end
+                -- Never reuse credited stages from a previous run, including fast mode.
+                -- Otherwise the very first failed warp can appear to be a verified
+                -- stage pass and the treasure will reject the incomplete route.
                 if not BoatWaitForStageReset(4) then
                     State.BuildABoatLastStatus="Waiting for previous stage credits to reset"
                     return false
@@ -33722,86 +33923,75 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                     Runtime.Movement.Guard()
                     State.BuildABoatCurrentStage=I
                     local StageSource="BuildABoatStage"..tostring(I)
-                    local StageDestinationName="BuildABoat:"..StageSource
+                    local DestinationName="BuildABoat:"..StageSource
                     local Part=BoatStagePart(I)
-                    local StageGoal=Runtime.GetDestinationWaypoint(StageDestinationName)
-                    if not StageGoal and not Part then
-                        -- On streamed mobile maps the next cave may not be present yet.
-                        -- Wait briefly for its live coordinate before failing this cycle.
+                    local Goal=Runtime.GetDestinationWaypoint(DestinationName)
+                    if not Part and not Goal then
                         State.BuildABoatLastStatus="Waiting for stage "..I.." to stream"
-                        local StreamDeadline=os.clock()+2.5
+                        local Deadline=os.clock()+2.5
                         repeat
                             Runtime.Movement.Guard()
                             task.wait(0.10)
                             Part=BoatStagePart(I)
-                        until Part or os.clock()>=StreamDeadline
+                        until Part or os.clock()>=Deadline
                     end
                     if Part then
-                        local LiveGoal=Part.CFrame*CFrame.new(0,3,0)
-                        StageGoal=select(1,Runtime.RefreshDestinationWaypoint(StageDestinationName,LiveGoal,"Build A Boat live stage",5)) or LiveGoal
+                        -- Stand clear of the middle of the wall rather than intersecting it.
+                        local Live=Part.CFrame*CFrame.new(0,3,math.max(3,math.min(8,Part.Size.Z*0.5+2)))
+                        Goal=select(1,Runtime.RefreshDestinationWaypoint(DestinationName,Live,"Build A Boat live stage",5)) or Live
                     end
-                    local HNow=Humanoid()
-                    if not HNow or HNow.Health<=0 or not Root() then
-                        if not BoatRecoverCharacter("Respawn before stage "..I) then return false end
-                        if State.BuildABoatAutoReseat then pcall(BoatSitNearest) end
-                    end
-                    if not StageGoal then
-                        State.BuildABoatLastStatus="Stage "..I.." DarknessPart/coordinate unavailable; wait for stage to load"
-                        return false
-                    end
-                    local Credited=false
-                    for Attempt=1,2 do
-                        Runtime.Movement.Guard()
-                        if Attempt>1 then State.BuildABoatRetries=(tonumber(State.BuildABoatRetries) or 0)+1 end
-                        State.BuildABoatLastStatus="Crossing stage "..I.." / 10"..(Attempt>1 and " • retry" or "")
-                        if not BoatTravel(StageGoal,StageSource) then
-                            State.BuildABoatLastStatus="Travel failed at stage "..I
-                        else
-                            Part=Part or BoatStagePart(I)
-                            if not Part then
-                                local TriggerDeadline=os.clock()+1.0
-                                repeat
-                                    task.wait(0.05)
-                                    Part=BoatStagePart(I)
-                                until Part or os.clock()>=TriggerDeadline
-                            end
-                            if not Part then
-                                State.BuildABoatLastStatus="Stage "..I.." trigger is not loaded at saved coordinate"
-                                return false
-                            end
-                            local LiveRoot=Root()
-                            local Knocked=not LiveRoot or (LiveRoot.Position-StageGoal.Position).Magnitude>55
-                            if LiveRoot and (LiveRoot.AssemblyLinearVelocity.Magnitude>180 or LiveRoot.AssemblyAngularVelocity.Magnitude>220) then
-                                Knocked=true
-                            end
-                            if Knocked then
-                                State.BuildABoatLastStatus="Knocked away at stage "..I.." • recovering"
-                                if BoatRecoverCharacter("Knocked away at stage "..I) then
-                                    LiveRoot=Root()
-                                    if LiveRoot then
-                                        pcall(function()
-                                            LiveRoot.AssemblyLinearVelocity=Vector3.zero
-                                            LiveRoot.AssemblyAngularVelocity=Vector3.zero
-                                        end)
-                                    end
-                                end
-                            end
-                            local Ok=not Knocked and BoatTriggerStage(Part,I)
-                            if Knocked then
-                                Ok=BoatTravel(StageGoal,StageSource.."Recover") and BoatTriggerStage(Part,I)
-                            end
-                            -- ClaimRiverResultsGold is a final-run settlement, not a stage trigger.
-                            -- Calling it here can reset pending stage credit before the chest.
-                            if Ok then Credited=true; break end
-                        end
-                        task.wait(0.12)
-                        Part=BoatStagePart(I) or Part
-                    end
-                    if not Credited then
+                    if not Goal then
+                        State.BuildABoatLastStatus="Stage "..I.." has no loaded position or saved waypoint"
                         State.BuildABoatFailedStages=(tonumber(State.BuildABoatFailedStages) or 0)+1
-                        State.BuildABoatLastStatus="Stage "..I.." credit was not confirmed"
                         return false
                     end
+                    if not Humanoid() or Humanoid().Health<=0 or not Root() then
+                        if not BoatRecoverCharacter("Respawn before stage "..I) then return false end
+                    end
+                    State.BuildABoatLastStatus="Teleporting to stage "..I.." / 10"
+                    if not BoatTravel(Goal,StageSource) then
+                        State.BuildABoatRetries=(tonumber(State.BuildABoatRetries) or 0)+1
+                        State.BuildABoatLastStatus="Teleport failed at stage "..I
+                        return false
+                    end
+                    local Arrived=os.clock()
+                    local StageCharacter=Player.Character
+                    local StageHealth=Humanoid()
+                    if not StageHealth or StageHealth.Health<=0 then
+                        State.BuildABoatLastStatus="Character died at stage "..I.."; stopped to prevent repeat deaths"
+                        State.BuildABoatDiedThisRun=true
+                        return false
+                    end
+                    Part=BoatStagePart(I) or Part
+                    if Part and Part.Parent then
+                        -- The touch can be attempted without assuming server credit.
+                        -- A successful touch return is NOT proof of an awarded reward.
+                        local OK,Credited=pcall(BoatTriggerStage,Part,I)
+                        if not OK or not Credited then
+                            State.BuildABoatUnverifiedStages=(tonumber(State.BuildABoatUnverifiedStages) or 0)+1
+                        end
+                    else
+                        State.BuildABoatUnverifiedStages=(tonumber(State.BuildABoatUnverifiedStages) or 0)+1
+                        State.BuildABoatLastStatus="Stage "..I.." trigger not streamed; position visited"
+                    end
+                    -- Wait a safe interval after reaching each stage, continuously checking survival.
+                    -- Stop/respawn cancellation is checked throughout the wait.
+                    while os.clock()-Arrived<math.max(1.35,tonumber(State.BuildABoatStageDelay) or 1) do
+                        Runtime.Movement.Guard()
+                        local LiveH=Humanoid()
+                        if Player.Character~=StageCharacter or not LiveH or LiveH.Health<=0 then
+                            State.BuildABoatDiedThisRun=true
+                            State.BuildABoatLastStatus="Died after stage "..I.."; route stopped"
+                            return false
+                        end
+                        task.wait(0.10)
+                    end
+                    local Credit,Value=BoatStageValue(I)
+                    if Credit and (not Value or Value=="") then
+                        State.BuildABoatLastStatus="Stage "..I.." server credit missing; stopping instead of skipping"
+                        return false
+                    end
+                    State.BuildABoatLastStatus="Stage "..I.." survived; continuing"
                 end
                 Runtime.Movement.Guard()
                 local TreasureDestinationName="BuildABoat:Treasure"
@@ -33922,8 +34112,22 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                 if not Succeeded then
                     State.BuildABoatRunStartedAt=0
                     State.BuildABoatLastFailure=tostring(OK and (State.BuildABoatLastStatus or "Run did not complete") or Result)
+                    local NoCredit=string.find(tostring(State.BuildABoatLastStatus or ""),"server credit missing",1,true)~=nil
+                    State.BuildABoatNoCreditStreak=NoCredit and ((tonumber(State.BuildABoatNoCreditStreak) or 0)+1) or 0
+                    if State.BuildABoatDiedThisRun or State.BuildABoatNoCreditStreak>=2 then
+                        -- Never keep automatic teleporting after a lethal stage. A safer
+                        -- manual boat/seat route must be tested in this server.
+                        State.BuildABoatLastStatus=State.BuildABoatDiedThisRun
+                            and "Stopped after stage death • inspect obstacles and boat"
+                            or "Stopped: stage credits rejected twice • use a normal boat run"
+                        task.defer(function()
+                            if Runtime.SetFlagValue then pcall(Runtime.SetFlagValue,"GameProfile_BuildABoat_AutoFarm",false) end
+                            StopLoop("BuildABoatGoldFarm")
+                        end)
+                    end
                 else
                     State.BuildABoatLastFailure=nil
+                    State.BuildABoatNoCreditStreak=0
                 end
                 local Status=tostring(State.BuildABoatLastStatus or "")
                 local WaitingForWorld=not Succeeded and OK and
@@ -33950,6 +34154,10 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                 State.BuildABoatLastStatus="Stopped"
                 State.BuildABoatLastFailure=nil
                 State.BuildABoatWorldWaitStreak=0
+                if State.BuildABoatTemporarySupport then
+                    pcall(function() State.BuildABoatTemporarySupport:Destroy() end)
+                    State.BuildABoatTemporarySupport=nil
+                end
                 if Runtime.CancelTravel then pcall(Runtime.CancelTravel) end
                 for _,Name in ipairs({"GameProfile_BuildABoat_AutoFarm","GameProfile_BuildABoat_StageESP"}) do
                     local Flag=Rayfield.Flags and Rayfield.Flags[Name]
@@ -33964,13 +34172,13 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                 local Running=Runtime.IsProfileLoopRunning and
                     (Runtime.IsProfileLoopRunning("BuildABoatGoldFarm") or Runtime.IsProfileLoopRunning("BuildABoatSingleRun"))
                 local Status=tostring(State.BuildABoatLastStatus or "Ready")
-                return (Running and "Farming" or "Stopped / ready").." • Stage "..tostring(Stage)
+                return (Running and "Stage route • survival check" or "Stopped / ready").." • Stage "..tostring(Stage)
                     .."\nRuns: "..tostring(State.BuildABoatRuns or 0)
                     .."  |  Gold gained: "..tostring(State.BuildABoatGoldEarned or 0)
                     .."\n"..string.sub(Status,1,115)
             end
 
-            local FarmCard=DetectedTab:DashboardSection(1,"Quick Farm Controls")
+            local FarmCard=DetectedTab:DashboardSection(1,"Stage Farm • Survival Checks")
             FarmCard:CreateToggle({Name="Auto Farm • Start / Stop",Flag="GameProfile_BuildABoat_AutoFarm",CurrentValue=false,Callback=function(V)
                 if V then
                     StopLoop("BuildABoatSingleRun")
@@ -33978,7 +34186,10 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                     if Runtime.BuildABoatStatusRefresh and not Runtime.IsProfileLoopRunning("BuildABoatDashboard") then
                         StartLoop("BuildABoatDashboard",Runtime.BuildABoatStatusRefresh,1.25)
                     end
-                    State.BuildABoatLastStatus="Smart farm starting"
+                    State.BuildABoatStageDelay=1.5
+                    State.BuildABoatFastStages=true
+                    State.BuildABoatTravelMode="Teleport"
+                    State.BuildABoatLastStatus="Checking stages and survival; auto-stops on death"
                     State.BuildABoatWorldWaitStreak=0
                     StartLoop("BuildABoatGoldFarm",BoatFarmCycle,function()
                         local Status=string.lower(tostring(State.BuildABoatLastStatus or ""))
@@ -33988,18 +34199,24 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                         if WorldWait>0 then return math.max(Base,math.min(6,1.0+WorldWait*0.9)) end
                         -- A repeated failure should not keep warping through the whole course every second.
                         local Failures=math.max(0,tonumber(State.BuildABoatFailureStreak) or 0)
-                        local Backoff=math.min(8,math.max(1,Base)*(2^math.min(math.max(0,Failures-1),3)))
-                        return Confirmed and math.max(0.45,Base) or Backoff
+                        -- Each course pass already includes ten one-second stage holds;
+                        -- keep retry pauses short so Auto Farm continues cycling.
+                        local Backoff=math.min(2.0,math.max(1,Base)*(2^math.min(math.max(0,Failures-1),3)))
+                        return Confirmed and math.max(0.65,Base) or math.max(1.25,Backoff)
                     end)
                 else
                     StopLoop("BuildABoatGoldFarm")
+                    if State.BuildABoatTemporarySupport then
+                        pcall(function() State.BuildABoatTemporarySupport:Destroy() end)
+                        State.BuildABoatTemporarySupport=nil
+                    end
                     if Runtime.CancelTravel then pcall(Runtime.CancelTravel) end
                     State.BuildABoatRunStartedAt=0
                     State.BuildABoatCurrentStage="Idle"
                     State.BuildABoatLastStatus="Stopped"
                 end
             end})
-            FarmCard:CreateButton({Name="Run Once",Callback=function()
+            FarmCard:CreateButton({Name="Attempt Stage Route Once (Checks Survival)",Callback=function()
                 Runtime.SetFlagValue("GameProfile_BuildABoat_AutoFarm",false)
                 StopLoop("BuildABoatSingleRun")
                 pcall(Runtime.ApplyGameSmartDefaults,"BuildABoat")
@@ -34061,7 +34278,7 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                 if Runtime.BuildABoatStatusRefresh then Runtime.BuildABoatStatusRefresh() end
                 Notify("Build A Boat","Farm, stage ESP, and travel stopped.")
             end})
-            TravelCard:CreateParagraph({Title="Build A Boat",Content="Routes use live stage/treasure triggers when available. Unverified stage touches never count as confirmed treasure rewards."})
+            TravelCard:CreateParagraph({Title="Build A Boat",Content="Auto Farm teleports through stages 1-10, waits at least one second at each stage, visits the treasure trigger, then repeats until stopped. Stage visits do not guarantee server credit; only a verified reward counts as a completed run."})
 
         elseif Kind == "Bloxburg" then
             local Jobs={"Pizza Delivery","Pizza Baker","Cashier","Fast Food Worker","Fisherman","Hairdresser","Janitor","Mechanic","Miner","Seller","Woodcutter","Stocker","Teacher"}
@@ -34910,7 +35127,16 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                 end})
                 DetectedTab:CreateSlider({Name="Strafe Radius",Range={5,20},Increment=1,Suffix=" studs",CurrentValue=8,Callback=function(V) State.ArsenalStrafeRadius=V end})
                 DetectedTab:CreateToggle({Name="Auto Strafe Selected Target",Flag="GameProfile_Arsenal_Strafe",CurrentValue=false,Callback=function(V)
-                    if V then StartLoop("ArsenalStrafe",function() local P=State.ArsenalTargetPlayer and FindPlayerByDisplayName(State.ArsenalTargetPlayer); local PR=P and ArsenalEnemy(P) and P.Character:FindFirstChild("HumanoidRootPart"); if not PR then return end; local A=os.clock()*2.2; local Radius=tonumber(State.ArsenalStrafeRadius) or 8; local Pos=PR.Position+Vector3.new(math.cos(A)*Radius,1.5,math.sin(A)*Radius); ProfileTravelToCFrame(CFrame.lookAt(Pos,PR.Position)) end,0.16) else StopLoop("ArsenalStrafe") end
+                    if V then StartLoop("ArsenalStrafe",function()
+                        local P=State.ArsenalTargetPlayer and FindPlayerByDisplayName(State.ArsenalTargetPlayer)
+                        local PR=P and ArsenalEnemy(P) and P.Character:FindFirstChild("HumanoidRootPart")
+                        local H,R=Humanoid(),Root()
+                        if not PR or not H or H.Health<=0 or not R then return end
+                        local A=os.clock()*1.3
+                        local Radius=tonumber(State.ArsenalStrafeRadius) or 8
+                        local Pos=PR.Position+Vector3.new(math.cos(A)*Radius,0,math.sin(A)*Radius)
+                        if (R.Position-Pos).Magnitude>2 then H:MoveTo(Pos) end
+                    end,0.35) else StopLoop("ArsenalStrafe"); local H=Humanoid(); if H then pcall(function() H:Move(Vector3.zero,false) end) end end
                 end})
                 DetectedTab:CreateToggle({Name="Auto Knife / Melee Close Enemy",Flag="GameProfile_Arsenal_CloseMelee",CurrentValue=false,Callback=function(V)
                     if V then StartLoop("ArsenalCloseMelee",function() local R0=Root(); if not R0 then return end; local Best,D=nil,12; for _,P in ipairs(Runtime.CachedPlayers()) do if ArsenalEnemy(P) then local PR=P.Character:FindFirstChild("HumanoidRootPart"); local X=PR and (R0.Position-PR.Position).Magnitude or math.huge; if X<D then Best,D=P,X end end end; if Best then local T=EquipTool("Knife",false) or EquipTool("Melee",false) or EquipTool("Any Tool",false); if T then pcall(function() T:Activate() end) end end end,0.12) else StopLoop("ArsenalCloseMelee") end
@@ -34927,8 +35153,16 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
 
             do
                 local function Remote(Name)
-                    local F=workspace:FindFirstChild("Remote")
-                    return F and F:FindFirstChild(Name)
+                    local F=workspace:FindFirstChild("Remote") or ReplicatedStorage:FindFirstChild("Remote")
+                    if not F then return nil end
+                    local Direct=F:FindFirstChild(Name)
+                    if Direct then return Direct end
+                    -- Some revisions capitalize the same remote differently.
+                    local Wanted=string.lower(tostring(Name or ""))
+                    for _,Child in ipairs(F:GetChildren()) do
+                        if string.lower(Child.Name)==Wanted then return Child end
+                    end
+                    return nil
                 end
                 local function Names()
                     local O={}
@@ -34953,7 +35187,7 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                     local Items=workspace:FindFirstChild("Prison_ITEMS")
                     local G=Items and Items:FindFirstChild("giver")
                     local Node=G and G:FindFirstChild(tostring(Name))
-                    return Node and Node:FindFirstChild("ITEMPICKUP") or nil
+                    return Node and (Node:FindFirstChild("ITEMPICKUP") or Node:FindFirstChild("ITEMPICKUP",true)) or nil
                 end
                 Runtime.PrisonWeaponOptions=function()
                     local Preferred={"MP5","Remington 870","AK-47","M4A1","M700","Revolver","M9"}
@@ -34962,7 +35196,7 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                     if G then
                         local Live,Seen={},{}
                         for _,Node in ipairs(G:GetChildren()) do
-                            if Node:FindFirstChild("ITEMPICKUP") then
+                            if Node:FindFirstChild("ITEMPICKUP") or Node:FindFirstChild("ITEMPICKUP",true) then
                                 local Name=tostring(Node.Name or "")
                                 if Name~="" and not Seen[Name] then Seen[Name]=true; Live[#Live+1]=Name end
                             end
@@ -35014,7 +35248,7 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                     if PickupRoot then
                         Saved=select(1,Runtime.RefreshDestinationWaypoint(DestinationName,PickupRoot.CFrame,"Prison Life live ITEMPICKUP",5)) or PickupRoot.CFrame
                     end
-                    if Saved then return Saved*CFrame.new(0,2.4,0),Pickup end
+                    if Pickup and Saved then return Saved*CFrame.new(0,2.4,0),Pickup end
                     return nil,Pickup
                 end
                 local function HasGunTool(Name)
@@ -35203,7 +35437,12 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                 end
                 local function Arrest(P)
                     local Part=TargetPart(P); local R=Remote("arrest")
-                    if not Part or not R then return false end
+                    local Me=Root()
+                    if not P or P==Player or not Part or not Me or not R then return false end
+                    -- Arrest is a guard action, not valid for the prisoner's team.
+                    local TeamName=Player.Team and string.lower(Player.Team.Name) or ""
+                    if not TeamName:find("guard",1,true) and not TeamName:find("police",1,true) then return false end
+                    if (Me.Position-Part.Position).Magnitude>math.max(12,tonumber(State.PrisonArrestRange) or 12) then return false end
                     if R:IsA("RemoteFunction") then return pcall(function() R:InvokeServer(Part) end) end
                     if R:IsA("RemoteEvent") then return pcall(function() R:FireServer(Part) end) end
                     return false
@@ -35233,12 +35472,17 @@ if not Ran then warn("BANANIHUB | teleport fallback startup failed: "..tostring(
                     local Map={Inmates="Bright orange",Guards="Bright blue",Neutral="Medium stone grey"}
                     if not SetTeam(Map[State.PrisonTeam] or "Bright orange") then Notify("Prison Life","TeamEvent was not available.") end
                 end})
-                DetectedTab:CreateDropdown({Name="Gun",Options=Runtime.PrisonCurrentWeaponOptions or Runtime.PrisonWeaponOptions(),CurrentOption={State.PrisonGun},Callback=function(O) State.PrisonGun=type(O)=="table" and O[1] or O end})
-                DetectedTab:CreateDropdown({Name="Armory Route Weapons",Options=Runtime.PrisonCurrentWeaponOptions or Runtime.PrisonWeaponOptions(),CurrentOption=State.PrisonArmoryWeapons,MultipleOptions=true,Callback=function(O) State.PrisonArmoryWeapons=type(O)=="table" and O or {} end})
+                DetectedTab:CreateDropdown({Name="Gun",Options=Runtime.PrisonCurrentWeaponOptions or Runtime.PrisonWeaponOptions(),DynamicOptions=Runtime.PrisonWeaponOptions,CurrentOption={State.PrisonGun},Callback=function(O) State.PrisonGun=type(O)=="table" and O[1] or O end})
+                DetectedTab:CreateDropdown({Name="Armory Route Weapons",Options=Runtime.PrisonCurrentWeaponOptions or Runtime.PrisonWeaponOptions(),DynamicOptions=Runtime.PrisonWeaponOptions,CurrentOption=State.PrisonArmoryWeapons,MultipleOptions=true,Callback=function(O) State.PrisonArmoryWeapons=type(O)=="table" and O or {} end})
                 DetectedTab:CreateDropdown({Name="Armory Travel",Options={"Smooth Tween","Teleport"},CurrentOption={State.PrisonArmoryTravelMode},Callback=function(O) State.PrisonArmoryTravelMode=type(O)=="table" and O[1] or O end})
                 DetectedTab:CreateButton({Name="Get Selected Gun + Return",Callback=function() if not GetGun(State.PrisonGun) then Notify("Prison Life","Could not collect "..tostring(State.PrisonGun).." from its exact giver path.") end end})
                 DetectedTab:CreateButton({Name="Run Smart Armory Route",Callback=function() task.spawn(function() SmartArmoryRun(State.PrisonArmoryWeapons) end) end})
-                DetectedTab:CreateButton({Name="Get Standard Guns + Return Once",Callback=function() task.spawn(function() SmartArmoryRun({"MP5","Remington 870","AK-47"}) end) end})
+                DetectedTab:CreateButton({Name="Get Standard Guns + Return Once",Callback=function() task.spawn(function() SmartArmoryRun({"MP5","Remington 870"}) end) end})
+                DetectedTab:CreateButton({Name="Refresh Current Armory / Weapons",Callback=function()
+                    local Options=Runtime.NormalizePrisonWeaponSelection()
+                    print("[BananiHub][Prison Life] Detected weapon pickups: "..table.concat(Options,", "))
+                    Notify("Prison Life",#Options.." pickup choices scanned • see console")
+                end})
 
                 DetectedTab:CreateSection("PRISON LIFE • LOOSE ITEMS")
                 DetectedTab:CreateButton({Name="Pick Up Loose Items",Callback=function()
@@ -35515,10 +35759,15 @@ end
 do
     Runtime.CoreActionLoops=Runtime.CoreActionLoops or {}
     Runtime.CoreActionThreads=Runtime.CoreActionThreads or {}
+    Runtime.CoreActionDefinitions=Runtime.CoreActionDefinitions or {}
+    Runtime.CoreWorkerRecovery=Runtime.CoreWorkerRecovery or {}
+    Runtime.CoreWorkerFatal=Runtime.CoreWorkerFatal or {}
     Runtime.CoreStopLoop=function(Name)
         if type(Name)~="string" or Name=="" then return false end
         local Old=Runtime.CoreActionThreads[Name]
         Runtime.CoreActionThreads[Name]=nil
+        Runtime.CoreActionDefinitions[Name]=nil -- intentional stop must never be restarted
+        Runtime.CoreWorkerFatal[Name]=nil -- explicit restart/stop clears fatal issue
         Runtime.CoreActionLoops[Name]=(tonumber(Runtime.CoreActionLoops[Name]) or 0)+1
         if Runtime.Movement then
             -- A failed movement stop must never prevent worker cancellation,
@@ -35543,6 +35792,7 @@ do
         if type(Name)~="string" or Name=="" or type(Step)~="function" then return false end
         Runtime.CoreStopLoop(Name)
         local Token=Runtime.CoreActionLoops[Name]
+        Runtime.CoreActionDefinitions[Name]={Token=Token,Step=Step,Delay=Delay,StartedAt=os.clock()}
         if Runtime.SetAutomationState then Runtime.SetAutomationState(Name,"Working","") end
         task.spawn(function()
             if Unloaded or Runtime.CoreActionLoops[Name]~=Token then return end
@@ -35566,6 +35816,7 @@ do
                     or string.find(tostring(Err),"BANANI_CANCELLED",1,true))
                 if Ok or ExpectedInterruption then
                     FailureCount=0
+                    if Ok and Runtime.CoreActionErrors then Runtime.CoreActionErrors[Name]=nil end
                 else
                     FailureCount=math.min(FailureCount+1,5)
                 end
@@ -35577,13 +35828,13 @@ do
                 if Unloaded or Runtime.CoreActionLoops[Name]~=Token or Context.Cancelled then break end
                 if not Ok then
                     local Message=tostring(Err)
-                    Runtime.CoreActionErrors=Runtime.CoreActionErrors or {}
-                    Runtime.CoreActionErrors[Name]=Message
-                    if Runtime.SetAutomationState then Runtime.SetAutomationState(Name,"Recovering",Message) end
+                    if not ExpectedInterruption then
+                        Runtime.CoreActionErrors=Runtime.CoreActionErrors or {}
+                        Runtime.CoreActionErrors[Name]=Message
+                    end
+                    if Runtime.SetAutomationState then Runtime.SetAutomationState(Name,"Recovering",ExpectedInterruption and "Waiting for movement / respawn" or Message) end
                     Runtime.CoreErrorNoticeAt=Runtime.CoreErrorNoticeAt or {}
-                    if not string.find(Message,"BANANI_MOVEMENT_BUSY",1,true)
-                        and not string.find(Message,"BANANI_CANCELLED",1,true)
-                        and os.clock()-(Runtime.CoreErrorNoticeAt[Name] or -math.huge)>=6 then
+                    if not ExpectedInterruption and os.clock()-(Runtime.CoreErrorNoticeAt[Name] or -math.huge)>=6 then
                         Runtime.CoreErrorNoticeAt[Name]=os.clock()
                         Notify("Automation",Name..": "..string.sub(Message,1,150))
                     end
@@ -35593,6 +35844,9 @@ do
                 if not DelayOK then
                     Runtime.CoreActionErrors=Runtime.CoreActionErrors or {}
                     Runtime.CoreActionErrors[Name]="Delay: "..tostring(WaitTime)
+                    if type(Runtime.ReportProblem)=="function" then
+                        Runtime.ReportProblem("Core delay: "..Name,WaitTime)
+                    end
                     if Runtime.SetAutomationState then Runtime.SetAutomationState(Name,"Recovering","Invalid loop delay") end
                     WaitTime=0.1
                 end
@@ -35606,9 +35860,49 @@ do
             if M and M.Contexts and M.Contexts[This]==Context then M.Contexts[This]=nil end
             if Runtime.CoreActionThreads[Name]==coroutine.running() then
                 Runtime.CoreActionThreads[Name]=nil
-                if Runtime.SetAutomationState then Runtime.SetAutomationState(Name,"Idle","") end
+                -- The definition remains so the bounded watchdog can detect an
+                -- unexpected exit; CoreStopLoop removes it for deliberate stops.
+                if Runtime.CoreActionDefinitions[Name] and Runtime.CoreActionDefinitions[Name].Token==Token then
+                    if Runtime.SetAutomationState then Runtime.SetAutomationState(Name,"Recovering","Worker ended; recovery pending") end
+                end
             end
         end)
+    end
+
+    Runtime.RecoverDeadCoreWorkers=function()
+        if Unloaded then return 0 end
+        local Recovered=0
+        for Name,Definition in pairs(Runtime.CoreActionDefinitions or {}) do
+            if type(Definition)=="table" and Definition.Token==Runtime.CoreActionLoops[Name] then
+                local Worker=Runtime.CoreActionThreads[Name]
+                local Age=os.clock()-(tonumber(Definition.StartedAt) or os.clock())
+                local Gone=(type(Worker)=="thread" and coroutine.status(Worker)=="dead")
+                    or (Worker==nil and Age>=6)
+                if Gone then
+                    local Now=os.clock()
+                    local Budget=Runtime.CoreWorkerRecovery[Name] or {Since=Now,Count=0}
+                    if Now-(tonumber(Budget.Since) or Now)>60 then Budget={Since=Now,Count=0} end
+                    Runtime.CoreWorkerRecovery[Name]=Budget
+                    if Budget.Count<3 then
+                        Budget.Count+=1
+                        if type(Runtime.ReportProblem)=="function" then
+                            Runtime.ReportProblem("Core worker: "..Name,"Worker unexpectedly stopped; recovery attempt "..tostring(Budget.Count).."/3")
+                        end
+                        if Runtime.SetAutomationState then Runtime.SetAutomationState(Name,"Recovering","Worker ended unexpectedly; restarting") end
+                        Runtime.CoreStartLoop(Name,Definition.Step,Definition.Delay)
+                        Recovered+=1
+                    else
+                        Runtime.CoreActionDefinitions[Name]=nil -- stop automatic restart storm
+                        Runtime.CoreActionErrors=Runtime.CoreActionErrors or {}
+                        Runtime.CoreActionErrors[Name]="Worker exited repeatedly; restart manually"
+                        Runtime.CoreWorkerFatal[Name]=Runtime.CoreActionErrors[Name]
+                        if Runtime.SetAutomationState then Runtime.SetAutomationState(Name,"Error",Runtime.CoreActionErrors[Name]) end
+                        if type(Runtime.ReportProblem)=="function" then Runtime.ReportProblem("Core worker: "..Name,Runtime.CoreActionErrors[Name]) end
+                    end
+                end
+            end
+        end
+        return Recovered
     end
 
     Runtime.CoreStopAllLoops=function()
@@ -35839,7 +36133,9 @@ do
                 pcall(function()
                     Obj.CanCollide=State.CanCollide
                     Obj.LocalTransparencyModifier=State.LocalTransparencyModifier
-                    Obj.Anchored=State.Anchored==true
+                    -- A parked player rig can have stale anchored limbs after a swap.
+                    -- A live controlled character must have an unanchored assembly.
+                    Obj.Anchored=false
                 end)
             end
         end
@@ -35879,6 +36175,19 @@ do
             pcall(function() Real.Parent=workspace end)
             if RR then pcall(function() RR.AssemblyLinearVelocity=Vector3.zero; RR.AssemblyAngularVelocity=Vector3.zero end) end
             U.RestoreRealCharacterPhysics()
+            if RR and RH then
+                pcall(function()
+                    for _,Part in ipairs(Real:GetDescendants()) do
+                        if Part:IsA("BasePart") then Part.Anchored=false end
+                    end
+                    RR.Anchored=false; RH.PlatformStand=false; RH.Sit=false
+                    RH.AutoRotate=true
+                    RH:ChangeState(Enum.HumanoidStateType.GettingUp)
+                    if RH:GetState()==Enum.HumanoidStateType.PlatformStanding then
+                        RH:ChangeState(Enum.HumanoidStateType.Running)
+                    end
+                end)
+            end
             if Cam and RH then
                 pcall(function()
                     Cam.CameraType=Enum.CameraType.Custom
@@ -36168,6 +36477,7 @@ do
             return false
         end
         Runtime.InvisibleTransitionBusy=true
+        if Enabled then Runtime.InvisibleOffRecoveryToken=(tonumber(Runtime.InvisibleOffRecoveryToken) or 0)+1 end
         local CallOK,Ok=pcall(function()
             if not Enabled then
                 return Runtime.ForceDisableBananiInvisible and Runtime.ForceDisableBananiInvisible(Silent)~=false
@@ -36191,6 +36501,25 @@ do
             Ok=false
         end
         local Active=Runtime.IsBananiInvisibleActive and Runtime.IsBananiInvisibleActive() or false
+        if not Enabled and not Active then
+            Runtime.InvisibleOffRecoveryToken=(tonumber(Runtime.InvisibleOffRecoveryToken) or 0)+1
+            local RecoveryToken=Runtime.InvisibleOffRecoveryToken
+            task.defer(function()
+                if Unloaded or Runtime.InvisibleOffRecoveryToken~=RecoveryToken then return end
+                local Character=Player.Character
+                local RH=Character and Character:FindFirstChildOfClass("Humanoid")
+                local RR=Character and Character:FindFirstChild("HumanoidRootPart")
+                if RH and RR and RH.Health>0 and not (Runtime.IsBananiInvisibleActive and Runtime.IsBananiInvisibleActive()) then
+                    pcall(function()
+                        for _,Part in ipairs(Character:GetDescendants()) do
+                            if Part:IsA("BasePart") then Part.Anchored=false end
+                        end
+                        RR.Anchored=false; RH.PlatformStand=false; RH.Sit=false; RH.AutoRotate=true
+                        RH:ChangeState(Enum.HumanoidStateType.GettingUp)
+                    end)
+                end
+            end)
+        end
         pcall(function() if Runtime.SyncInvisibleFlags then Runtime.SyncInvisibleFlags(Active) end end)
         if Runtime.RefreshFavoriteCard then task.defer(function() pcall(Runtime.RefreshFavoriteCard) end) end
         Runtime.InvisibleTransitionBusy=false
@@ -39291,6 +39620,42 @@ do
         local SelectedConfigName = ""
         local SelectedConfigToLoad = nil
         local ConfigDropdown
+        -- Diagnostics leads Settings on mobile. Place the action before long reports,
+        -- so the user sees it immediately without searching/scrolling.
+        SettingsTab:CreateSection("Diagnostics")
+        Runtime.RunTestsControl = SettingsTab:CreateButton({
+            Name = "Run All Tests",
+            Callback = function()
+                if Runtime.TestsRunning then
+                    Notify("BananiHub Tests", "Tests are already running. Results are shown here and in console.")
+                    return
+                end
+                if Runtime.TestResultParagraph and Runtime.TestResultParagraph.Set then
+                    Runtime.TestResultParagraph:Set({Title="Run Tests • Running...",Content="Checking shared systems and the active game. PASS / FAIL / SKIP will print in console. No gameplay actions will start."})
+                end
+                task.spawn(function()
+                    local OK,Err=pcall(function()
+                        assert(type(Runtime.RunAllTests)=="function", "Run Tests is not initialized")
+                        return Runtime.RunAllTests()
+                    end)
+                    if not OK then
+                        Runtime.TestsRunning=false
+                        local Message=tostring(Err)
+                        if Runtime.TestResultParagraph and Runtime.TestResultParagraph.Set then
+                            pcall(function() Runtime.TestResultParagraph:Set({Title="Run Tests • ERROR",Content=Message}) end)
+                        end
+                        if Runtime.ReportProblem then Runtime.ReportProblem("Run Tests",Message)
+                        else warn("[BananiHub ERROR] Run Tests: "..Message) end
+                        Notify("BananiHub Tests", "Tests failed to start. See Settings report and console.")
+                    end
+                end)
+            end
+        })
+        Runtime.TestResultParagraph=SettingsTab:CreateParagraph({
+            Title="Run Tests • Not run",
+            Content="Run All Tests verifies source wiring, player/UI readiness and active-worker health. PASS does not mean the server accepted an automated action. Other games are SKIP, not PASS. Full details print to console."
+        })
+        SettingsTab:CreateSection("Preferences")
         Runtime.SettingsInfoParagraph = SettingsTab:CreateParagraph({
             Title = "⚙️ BananiHub Preferences",
             Content = "Theme: Loading...\nKeybind: " .. UIToggleKey.Name .. "\nWaypoints: Loading...\nFavorites: Loading..."
@@ -39660,7 +40025,15 @@ do
                 local PUI=(Runtime and Runtime.PremiumAppleUI) or (Env and Env.BananiHubPremiumUI)
                 Check("Premium UI root", PUI~=nil and PUI.Gui~=nil and PUI.Gui.Parent~=nil)
                 if PUI and type(PUI.GetUIHealth)=="function" then
-                    local UIHealth=PUI.GetUIHealth()
+                    local HealthOK,UIHealth=pcall(PUI.GetUIHealth)
+                    if not HealthOK or type(UIHealth)~="table" then
+                        Check("Premium UI health accessible",false)
+                        local Reason=HealthOK and "Invalid health report" or tostring(UIHealth)
+                        UIHealth={}
+                        if type(Runtime.ReportProblem)=="function" then
+                            Runtime.ReportProblem("Settings UI health",Reason)
+                        end
+                    end
                     Check("Notch controls above shell",UIHealth.ForegroundLayer)
                     Check("Expanded content has no dark tint",UIHealth.NeutralForeground)
                     Check("Notch action controls attached",UIHealth.ActionControls)
@@ -39678,7 +40051,8 @@ do
             end
             Check("Simple tab removed", not HasSimple)
             Check("Live camera", workspace.CurrentCamera ~= nil)
-            Check("Living character", Humanoid() ~= nil and Root() ~= nil and Humanoid().Health > 0)
+            local HealthHumanoid=Humanoid()
+            Check("Living character", HealthHumanoid~=nil and Root()~=nil and HealthHumanoid.Health>0)
             Check("Travel engine", type(Runtime.TravelToCFrame) == "function" and Runtime.Movement ~= nil)
             Check("Movement owner is valid", Runtime.Movement == nil or Runtime.Movement.Owner == nil or type(Runtime.Movement.Owner) == "string")
             Check("Item scanner", Runtime.VisualEngine ~= nil and type(Runtime.VisualEngine.PickUpAllItems) == "function")
@@ -39711,6 +40085,12 @@ do
                     ProfileReport=ProfileReport.."\n\nAUTOMATION HEALTH\n"..Health
                 end
             end
+            if type(Runtime.AuditRegisteredControls)=="function" then
+                local ControlOK,Summary,Missing=Runtime.AuditRegisteredControls(false)
+                Check("Every registered button, toggle & input wired",ControlOK)
+                ProfileReport=ProfileReport.."\n\nCONTROL AUDIT\n"..Summary
+                    ..(#Missing>0 and ("\n"..table.concat(Missing,"\n"):sub(1,1700)) or "")
+            end
             Runtime.HealthParagraph:Set({
                 Title = "Runtime Health • " .. Passed .. "/" .. Total,
                 Content = table.concat(Lines, "\n") .. ProfileReport .. "\nAvailability checks only; game-specific behavior needs a live test."
@@ -39720,12 +40100,72 @@ do
             end
             return Passed == Total
         end
+        Runtime.AuditRegisteredControls=function(LogAll)
+            local ByKind,Missing,Total,Valid={},{},0,0
+            local Seen={}
+            for _,Record in ipairs(Rayfield._PremiumRegistry or {}) do
+                if type(Record)=="table" then
+                    Total+=1
+                    local Kind=tostring(Record.Kind or "Unknown")
+                    ByKind[Kind]=(ByKind[Kind] or 0)+1
+                    local Failure=nil
+                    if not Record.Obj then Failure="control object missing"
+                    elseif type(Record.Name)~="string" or Record.Name=="" then Failure="control name missing"
+                    elseif Kind=="Button" and type(Record.Callback)~="function" then Failure="button callback missing"
+                    elseif (Kind=="Toggle" or Kind=="Slider" or Kind=="Dropdown" or Kind=="Input" or Kind=="Keybind")
+                        and type(Record.Callback)~="function" then Failure="change callback missing"
+                    elseif Record.Flag and Rayfield.Flags and not Rayfield.Flags[Record.Flag] then Failure="registered flag not found"
+                    elseif (Kind=="Toggle" or Kind=="Slider" or Kind=="Dropdown" or Kind=="Input"
+                        or Kind=="Keybind" or Kind=="Color") and type(Record.Obj.Set)~="function" then Failure="control Set method missing"
+                    elseif Kind=="Toggle" and type(Record.Obj.CurrentValue)~="boolean" then Failure="toggle state invalid"
+                    elseif Kind=="Slider" and (type(Record.Obj.Range)~="table"
+                        or type(Record.Obj.CurrentValue)~="number"
+                        or Record.Obj.CurrentValue~=Record.Obj.CurrentValue
+                        or type(Record.Obj.Range[1])~="number"
+                        or type(Record.Obj.Range[2])~="number"
+                        or Record.Obj.Range[1]>Record.Obj.Range[2]) then Failure="slider range/state invalid"
+                    elseif Kind=="Dropdown" and (type(Record.Obj.Options)~="table"
+                        or type(Record.Obj.CurrentOption)~="table") then Failure="dropdown selection/options invalid"
+                    elseif Kind=="Input" and type(Record.Obj.CurrentValue)~="string" then Failure="input state invalid"
+                    elseif Kind=="Keybind" and (type(Record.Obj.CurrentKeybind)~="string"
+                        or Record.Obj.CurrentKeybind=="") then Failure="keybind state invalid"
+                    elseif Kind=="Color" and typeof(Record.Obj.Color)~="Color3" then Failure="color state invalid" end
+                    local Key=tostring(Record.Tab).."/"..tostring(Record.Section).."/"..tostring(Record.Name)
+                    if Seen[Key] then
+                        -- Duplicate label is informational only: multiple sections can repeat titles.
+                    end
+                    Seen[Key]=true
+                    if Failure then
+                        local Message=Key.." ["..Kind.."]: "..Failure
+                        Missing[#Missing+1]=Message
+                        warn("[BananiHub Control Audit FAIL] "..Message)
+                    else
+                        Valid+=1
+                        if LogAll then print("[BananiHub Control Audit PASS] "..Key.." ["..Kind.."]") end
+                    end
+                end
+            end
+            local Kinds={}
+            for Kind,N in pairs(ByKind) do Kinds[#Kinds+1]=Kind.."="..N end
+            table.sort(Kinds)
+            if Total==0 then
+                Missing[#Missing+1]="UI control registry is empty (cannot verify the buttons)"
+                warn("[BananiHub Control Audit FAIL] UI registry is empty")
+            end
+            local Summary="Controls "..Valid.."/"..Total.." • "..table.concat(Kinds,", ")
+            Runtime.ControlAuditLast={Valid=Valid,Total=Total,Failures=Missing,Summary=Summary,At=os.clock()}
+            print("[BananiHub Control Audit] "..Summary.." • callbacks and stored control values inspected, NOT executed")
+            return Total>0 and #Missing==0,Summary,Missing
+        end
+        SettingsTab:CreateButton({Name="Inspect Every Button / Toggle / Control (Safe)",Callback=function()
+            local OK,Summary,Missing=Runtime.AuditRegisteredControls(true)
+            if Runtime.HealthParagraph then Runtime.HealthParagraph:Set({Title="Control Audit • "..(OK and "PASS" or "FAIL"),
+                Content=Summary.."\n"..table.concat(Missing,"\n"):sub(1,2800)
+                    .."\nRead-only wiring check. This does not execute the buttons."}) end
+            Notify("Control Audit",Summary.." • see console")
+        end})
         SettingsTab:CreateButton({Name = "🩺 Run Health Check", Callback = function() Runtime.RunHealthCheck() end})
 
-        Runtime.TestResultParagraph=SettingsTab:CreateParagraph({
-            Title="Run Tests • Not run",
-            Content="Checks all shared systems and this game's registered features. Tests for other games are SKIPPED. No travel, purchases, combat, or farming will start. Detailed results print to the console."
-        })
         Runtime.RecentErrorsParagraph=SettingsTab:CreateParagraph({
             Title="Recent Console Errors",
             Content=Runtime.GetRecentProblemReport(6)
@@ -39765,7 +40205,23 @@ do
                 end)
                 Check("CurrentCamera available",function() return workspace.CurrentCamera~=nil end)
                 Check("UI navigation backend",function() return type(Rayfield.ToggleUI)=="function" and type(Window.SelectTab)=="function" end)
-                Check("Settings Run Tests control",function() return Runtime.TestResultParagraph~=nil and Runtime.TestResultParagraph.Set~=nil end)
+                Check("All registered UI controls wired",function()
+                    if type(Runtime.AuditRegisteredControls)~="function" then return "Control audit missing" end
+                    local OK,Summary=Runtime.AuditRegisteredControls(false)
+                    return OK or Summary
+                end)
+                Check("Settings Run Tests control",function()
+                    if not (Runtime.RunTestsControl and Runtime.TestResultParagraph and type(Runtime.RunAllTests)=="function") then
+                        return "Run Tests button, results panel, or test runner missing"
+                    end
+                    for _,Record in ipairs(Rayfield._PremiumRegistry or {}) do
+                        if Record.Tab=="Settings" and Record.Obj==Runtime.RunTestsControl
+                            and Record.Kind=="Button" and type(Record.Callback)=="function" then
+                            return true
+                        end
+                    end
+                    return "Run Tests button not registered in Settings UI"
+                end)
                 Check("Premium GUI mounted",function()
                     local UI=Runtime.PremiumAppleUI
                     return UI~=nil and UI.Gui~=nil and UI.Gui.Parent~=nil
@@ -39780,11 +40236,29 @@ do
                     local H=UI.GetUIHealth()
                     return H.SafeAreaAware and H.NavigationScrollable and H.WindowFitsViewport
                 end)
+                Check("Notch closes after 1.25s idle",function()
+                    return Runtime.PremiumPolish and Runtime.PremiumPolish.ExpandedAutoCloseSeconds==1.25
+                end)
+                Check("MM2 coin movement configuration",function()
+                    if Runtime.DetectedGameProfileKind~="MM2" then return true end
+                    local Active=Runtime.ActiveGameModule
+                    local Delay=State and tonumber(State.MM2CoinDelay)
+                    return Runtime.MM2CoinWalkOnly==true and Delay~=nil and Delay>=0.45 and Delay<=1.60
+                        and Active~=nil
+                end)
                 Check("Notch controls & icon capacity",function()
                     local UI=Runtime.PremiumAppleUI
                     if not UI or type(UI.GetUIHealth)~="function" then return "No live UI health API" end
                     local H=UI.GetUIHealth()
-                    return H.ActionControls and H.IconCapacityHealthy and H.ExpandedNotchFitsViewport
+                    return H.ActionControls and H.IconCapacityHealthy and H.ExpandedNotchFitsViewport and H.NotchTopSafe
+                end)
+                Check("Notch activity icons",function()
+                    local UI=Runtime.PremiumAppleUI
+                    if not UI or type(UI.NormalizeActivityIconKey)~="function" then return "Icon mapper unavailable" end
+                    for K,V in pairs({sleepy="moon",hungry="food",thirsty="water",dirty="water",up="up",rank="up",chams="chams",raid="raid",coin="coin",combat="combat"}) do
+                        if UI.NormalizeActivityIconKey(K,"","","")~=V then return "Bad icon mapping: "..K end
+                    end
+                    return true
                 end)
                 Check("Shared travel engine",function() return type(Runtime.TravelToCFrame)=="function" and Runtime.Movement~=nil end)
                 Check("Navigation routing",function() return type(Runtime.TravelToNamedDestination)=="function" and type(Runtime.RefreshDestinationWaypoint)=="function" end)
@@ -39848,12 +40322,22 @@ do
                         end
                     end
                 end
-                for Name,Thread in pairs(Runtime.CoreActionThreads or {}) do
-                    if Runtime.CoreActionLoops and Runtime.CoreActionLoops[Name]~=nil then
-                        Check("Core worker "..tostring(Name),function()
-                            return type(Thread)=="thread" and coroutine.status(Thread)~="dead"
-                        end)
+                for Name,Definition in pairs(Runtime.CoreActionDefinitions or {}) do
+                    if Definition and Runtime.CoreActionLoops and Definition.Token==Runtime.CoreActionLoops[Name] then
+                        local Thread=Runtime.CoreActionThreads and Runtime.CoreActionThreads[Name]
+                        local Age=os.clock()-(tonumber(Definition.StartedAt) or os.clock())
+                        if Thread==nil and Age<6 then
+                            Result("Core worker "..tostring(Name),"SKIP","Worker starting")
+                        else
+                            Check("Core worker "..tostring(Name),function()
+                                if type(Thread)~="thread" then return "Missing worker thread" end
+                                return coroutine.status(Thread)~="dead" or "Worker terminated"
+                            end)
+                        end
                     end
+                end
+                for Name,Reason in pairs(Runtime.CoreWorkerFatal or {}) do
+                    Result("Fatal core worker "..tostring(Name),"FAIL",Reason)
                 end
                 local Issues=Runtime.GetIssueReport and Runtime.GetIssueReport(10) or "No issue checker"
                 if Issues~="No known failures. Live game-feature behavior is not proven." then
@@ -39872,15 +40356,6 @@ do
             Notify("BananiHub Tests",Summary.." • See console for details.")
             return Failed==0
         end
-        SettingsTab:CreateButton({Name="🧪 Run Tests • Print Failures to Console",Callback=function()
-            task.spawn(function()
-                local OK,Err=pcall(Runtime.RunAllTests)
-                if not OK then
-                    Runtime.TestsRunning=false
-                    if Runtime.ReportProblem then Runtime.ReportProblem("Run Tests",Err) else warn("[BananiHub ERROR] Run Tests: "..tostring(Err)) end
-                end
-            end)
-        end})
         SettingsTab:CreateButton({Name="Refresh Recent Console Errors",Callback=function()
             Runtime.RecentErrorsParagraph:Set({Title="Recent Console Errors",Content=Runtime.GetRecentProblemReport(10)})
         end})
@@ -40003,7 +40478,7 @@ do
         Theme={
             Gold=Color3.fromRGB(255,193,63), GoldSoft=Color3.fromRGB(255,223,145),
             GoldDark=Color3.fromRGB(118,77,23), Text=Color3.fromRGB(244,244,247),
-            Muted=Color3.fromRGB(145,147,158), Muted2=Color3.fromRGB(100,102,112),
+            Muted=Color3.fromRGB(177,179,189), Muted2=Color3.fromRGB(134,137,149),
             Window=Color3.fromRGB(9,9,10), Panel=Color3.fromRGB(18,18,20),
             Border=Color3.fromRGB(78,65,43), Green=Color3.fromRGB(52,211,153),
         }
@@ -40017,6 +40492,16 @@ do
         function N(Class,Props,Parent)
             local O=Instance.new(Class)
             for K,V in pairs(Props or {}) do O[K]=V end
+            if Class=="TextLabel" or Class=="TextButton" or Class=="TextBox" then
+                -- The standard Gotham regular weight is too thin on low-density, scaled screens.
+                -- Keep bold/headline fonts unchanged; snap other text to whole-pixel sizes.
+                if O.Font==Enum.Font.Gotham then O.Font=Enum.Font.GothamMedium end
+                if Props and Props.TextSize~=nil then
+                    local Minimum=(Class=="TextLabel") and 11 or 12
+                    O.TextSize=math.max(Minimum,math.floor((tonumber(Props.TextSize) or 12)+0.5))
+                end
+                if Props and Props.TextStrokeTransparency==nil then O.TextStrokeTransparency=1 end
+            end
             if Parent then O.Parent=Parent end
             return O
         end
@@ -40027,7 +40512,7 @@ do
         function G(Parent,A,B,Rotation)
             return N("UIGradient",{Color=ColorSequence.new({ColorSequenceKeypoint.new(0,A),ColorSequenceKeypoint.new(1,B)}),Rotation=Rotation or 0},Parent)
         end
-        UI_TEXT_SCALE=1.26
+        UI_TEXT_SCALE=1.20
         function cleanUIString(Value)
             local S=tostring(Value or "")
             local OK,Result=pcall(function()
@@ -40042,7 +40527,7 @@ do
         end
         function T(Parent,Value,Size,Color,Align,Font)
             local Requested=tonumber(Size) or 11
-            local Scaled=math.max(8,math.floor(Requested*UI_TEXT_SCALE+0.5))
+            local Scaled=math.max(S.TouchLayout and 14 or 12,math.floor(Requested*UI_TEXT_SCALE+0.5))
             return N("TextLabel",{BackgroundTransparency=1,Text=cleanUIString(Value),TextSize=Scaled,TextColor3=Color or Theme.Text,Font=Font or Enum.Font.Gotham,TextXAlignment=Align or Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Center,TextTruncate=Enum.TextTruncate.AtEnd},Parent)
         end
         PremiumActiveTweens=setmetatable({}, {__mode="k"})
@@ -40287,16 +40772,16 @@ do
             -- as well as aspect ratio so they do not inherit phone navigation.
             if MobileTouch and LongRatio>=1.48 and math.min(V.X,V.Y)<560 then
                 if Portrait then
-                    local W=math.clamp(V.X-12,320,440)
-                    local H=math.clamp(V.Y-16,560,800)
+                    local W=math.clamp(V.X-12,300,440)
+                    local H=math.clamp(V.Y-12,500,800)
                     local Sidebar=math.floor(math.clamp(W*.17,58,69)+.5)
                     return {Name="PhonePortrait",Width=W,Height=H,Sidebar=Sidebar,ShowTopStats=false,ShowRail=false,ShowSideFoot=false,WideSearch=true,Touch=true,Fill=.98,MaxScale=1.08}
                 end
-                local W=math.clamp(V.X-20,620,900)
-                local H=math.clamp(V.Y-18,350,520)
-                local Sidebar=math.floor(math.clamp(W*.19,118,166)+.5)
+                local W=math.clamp(V.X-12,470,900)
+                local H=math.clamp(V.Y-12,300,520)
+                local Sidebar=math.floor(math.clamp(W*.17,82,136)+.5)
                 -- A narrow landscape display cannot fit the top-stats panel beside the search.
-                return {Name="PhoneLandscape",Width=W,Height=H,Sidebar=Sidebar,ShowTopStats=false,ShowRail=false,ShowSideFoot=false,WideSearch=true,Touch=true,Fill=.98,MaxScale=1.08}
+                return {Name="PhoneLandscape",Width=W,Height=H,Sidebar=Sidebar,ShowTopStats=false,ShowRail=false,ShowSideFoot=false,WideSearch=true,Touch=true,Fill=.99,MaxScale=1.12}
             end
             if MobileTouch then
                 local W=math.clamp(V.X-22,700,960)
@@ -40392,28 +40877,49 @@ do
             S.ScheduleResponsiveUpdate(false)
         end))
 
-        -- Closed-state Dynamic Island: one compact floating surface, fed by the shared FPS/ping sampler.
-        -- Keep the original 8px floating gap. On single-click this SAME shell grows to contain
-        -- the extra task information; there is no second card or visible bridge.
-        NotchTopY=8
+        -- The ScreenGui already obeys CoreUISafeInsets, including phone notches and
+        -- Roblox's own topbar. Keep the island against the TOP of that safe rectangle;
+        -- subtracting raw screen inset values would put it under iOS/Android cutouts.
+        function S.GetNotchTopY()
+            local Spec=S.LayoutSpec or (S.ResolveResponsiveLayout and S.ResolveResponsiveLayout())
+            if Spec and (Spec.Name=="PhonePortrait" or Spec.Name=="PhoneLandscape") then return 0 end
+            if Spec and Spec.Touch then return 0 end
+            return 2
+        end
+        NotchTopY=S.GetNotchTopY()
         S.NotchResponsiveScale=1
         function S.GetNotchResponsiveScale()
             local V=S.GetUsableViewport()
             local Spec=S.LayoutSpec or (S.ResolveResponsiveLayout and S.ResolveResponsiveLayout())
             local Fit=(V.X-12)/402
-            -- Expanded mode is 402px wide before UIScale. Always honor available
-            -- device-safe horizontal space, including unusually narrow split-screen views.
             local WidthCap=math.max(.25,(V.X-8)/402)
             local Preferred
-            if Spec and Spec.Name=="PhonePortrait" then Preferred=math.clamp(Fit*.92,.72,1.65)
-            elseif Spec and Spec.Name=="PhoneLandscape" then Preferred=math.clamp(Fit*.72,.72,1.35)
-            elseif Spec and Spec.Touch then Preferred=math.clamp(Fit*.78,.72,1.20)
-            else Preferred=math.clamp(Fit,.72,1) end
-            return math.min(WidthCap,Preferred)
+            if Spec and Spec.Name=="PhonePortrait" then
+                -- Keep the idle capsule small without crushing its avatar/text.
+                Preferred=math.min(.87,math.max(.66,Fit*.95))
+            elseif Spec and Spec.Name=="PhoneLandscape" then
+                -- Landscape phones are wide but very short: width-only scaling
+                -- previously made a 202px tall expanded island dominate the view.
+                Preferred=math.min(.84,math.max(.58,(V.Y*.57)/202))
+            elseif Spec and Spec.Touch then
+                Preferred=math.min(1,math.max(.72,Fit*.82))
+            else
+                Preferred=math.clamp(Fit,.72,1)
+            end
+            -- Expanded panels must remain within the usable screen height.
+            local HeightCap=math.max(.25,(V.Y-6)/202)
+            return math.clamp(math.min(WidthCap,HeightCap,Preferred),.25,1)
         end
         S.NotchResponsiveScale=S.GetNotchResponsiveScale()
         function S.NotchScaleValue(Multiplier)
             return (tonumber(S.NotchResponsiveScale) or 1)*(tonumber(Multiplier) or 1)
+        end
+        function S.GetNotchMiniOffset(Opening)
+            -- Shell and expanded contents scale independently; proportional
+            -- offsets keep their edges aligned when phone orientation changes.
+            local Base=Opening and 26 or 20
+            local SafeTop=(NotchTopY<=3) and NotchTopY or 0
+            return UDim2.new(.5,0,0,SafeTop+math.floor(Base*S.NotchScaleValue(1)+.5))
         end
         Notch=N("TextButton",{
             Name="ClosedIsland",AnchorPoint=Vector2.new(.5,0),Position=UDim2.new(.5,0,0,NotchTopY),
@@ -40426,6 +40932,11 @@ do
         NotchScale=N("UIScale",{Scale=S.NotchScaleValue(.90)},Notch)
         function S.UpdateNotchResponsiveScale()
             S.NotchResponsiveScale=S.GetNotchResponsiveScale()
+            NotchTopY=S.GetNotchTopY()
+            if Notch then
+                S.CancelObjectTweens(Notch)
+                Notch.Position=UDim2.new(.5,0,0,NotchTopY)
+            end
             if NotchScale then
                 S.CancelObjectTweens(NotchScale)
                 NotchScale.Scale=S.NotchScaleValue(1)
@@ -40433,6 +40944,19 @@ do
             if NotchMiniScale then
                 S.CancelObjectTweens(NotchMiniScale)
                 NotchMiniScale.Scale=S.NotchScaleValue(1)
+            end
+            if NotchMini then
+                S.CancelObjectTweens(NotchMini)
+                NotchMini.Position=S.GetNotchMiniOffset(false)
+            end
+            -- Keep status/icon visible through a device rotation, including expanded mode.
+            if Notch and Notch.Visible and type(RefreshNotch)=="function" then
+                task.defer(function()
+                    if Gui.Parent then
+                        local OK,Err=pcall(RefreshNotch)
+                        if not OK then warn("[BH:NOTCH] resize refresh: "..tostring(Err)) end
+                    end
+                end)
             end
         end
 
@@ -40654,7 +41178,8 @@ do
         end
         function PlayBloxFruitsLevelUpVFX(Info,OnFinished)
             if tostring(Runtime.DetectedGameProfileKind or "")~="BloxFruits" then return false end
-            if not Root or not Root.Parent or not Notch or not Notch.Parent then return false end
+            local LevelRoot=type(Root)=="function" and Root() or nil
+            if not LevelRoot or not LevelRoot.Parent or not Notch or not Notch.Parent then return false end
             if type(Info)=="table" then
                 Info.UIBound=true
                 Info.HoldUntilUIFinish=true
@@ -41120,7 +41645,9 @@ do
                 local DX,DY=X2-X1,Y2-Y1
                 local Length=math.max(1,math.sqrt(DX*DX+DY*DY))
                 local T=(Thickness or 2.6)*1.0
-                local Join=math.clamp(T*.92,1.25,2.0)
+                -- A little endpoint overlap closes seams after device scaling,
+                -- without the long protruding rounded ends of the old renderer.
+                local Join=math.clamp(T*.72,1.05,1.9)
                 local DrawLength=Length+(Join*2)
                 PartFn(I,(X1+X2)/2-DrawLength/2,(Y1+Y2)/2-T/2,DrawLength,T,
                     math.deg(math.atan2(DY,DX)),SegmentColor or Ink,T/2)
@@ -41165,6 +41692,11 @@ do
                 Line(14,20.0,14,8.2,2.8)
                 Line(9.4,12.8,14,8.2,2.8)
                 Line(18.6,12.8,14,8.2,2.8)
+            elseif Key=="up" then
+                -- Rank/ascend: one continuous upward arrow with an anchored baseline.
+                Line(14,23,14,6.2,2.75)
+                Line(7.4,12.8,14,6.2,2.75); Line(20.6,12.8,14,6.2,2.75)
+                Line(7.4,24,20.6,24,2.5)
             elseif Key=="travel" then
                 Line(4,14,23,14,2.8); Line(16,7,23,14,2.8); Line(23,14,16,21,2.8)
                 Dot(5,14,1.8)
@@ -41332,7 +41864,7 @@ do
         NotchBridgeAccent=N("Frame",{AnchorPoint=Vector2.new(.5,0),Position=UDim2.new(.5,0,1,-2),Size=UDim2.fromOffset(0,1),BackgroundColor3=Color3.fromRGB(255,255,255),BackgroundTransparency=1,BorderSizePixel=0,ZIndex=217},NotchBridge); C(NotchBridgeAccent,1)
 
         NotchMini=N("CanvasGroup",{
-            Name="IslandMiniPanel",AnchorPoint=Vector2.new(.5,0),Position=UDim2.new(.5,0,0,20),
+            Name="IslandMiniPanel",AnchorPoint=Vector2.new(.5,0),Position=S.GetNotchMiniOffset(false),
             Size=UDim2.fromOffset(402,182),BackgroundColor3=Color3.fromRGB(7,7,9),
             BackgroundTransparency=1,BorderSizePixel=0,GroupTransparency=1,ClipsDescendants=true,
             Visible=false,Active=false,ZIndex=240,GroupColor3=Color3.new(1,1,1)
@@ -41433,24 +41965,18 @@ do
         NotchIdleQuickGroup=N("CanvasGroup",{Name="IdleQuickActions",BackgroundTransparency=1,Position=UDim2.fromOffset(0,0),Size=UDim2.fromScale(1,1),GroupTransparency=0,Visible=false,ZIndex=230},NotchMini)
         NotchIdleQuickLabel=T(NotchIdleQuickGroup,"QUICK ACTIONS",6.5,Theme.Muted2,Enum.TextXAlignment.Left,Enum.Font.GothamBold); NotchIdleQuickLabel.Position=UDim2.fromOffset(17,99); NotchIdleQuickLabel.Size=UDim2.fromOffset(120,11); NotchIdleQuickLabel.ZIndex=231
         function DrawNotchQuickIcon(Host,Name)
-            local Icon=N("Frame",{Name="QuickIcon",BackgroundTransparency=1,Position=UDim2.fromOffset(7,8),Size=UDim2.fromOffset(20,20),ZIndex=234},Host)
+            -- The identical 28x28 vector is used by compact, expanded, and quick-action
+            -- paths. Scale the WHOLE symbol rather than widening individual segments,
+            -- which formerly bent round dots and separated sword/eye/body endpoints.
+            local Icon=N("Frame",{Name="QuickIcon",BackgroundTransparency=1,Position=UDim2.fromOffset(5,8),Size=UDim2.fromOffset(28,28),ZIndex=234},Host)
+            N("UIScale",{Scale=22/28},Icon)
             local Parts={}
             local Keys={Invisible="hidden",Fly="fly",Noclip="noclip",Chams="chams"}
             DrawPremiumTaskSymbol(function(I,X,Y,W,H,R,Col,Rad)
-                local Scale=20/28
-                local PX,PY=X*Scale,Y*Scale
-                local PW,PH=W*Scale,H*Scale
-                if math.abs(W-H)<.05 then
-                    local D=math.max(1.7,PW)
-                    PX-=((D-PW)*.5); PY-=((D-PH)*.5); PW,PH=D,D
-                else
-                    local NewH=math.max(1.85,PH)
-                    PY-=((NewH-PH)*.5); PH=NewH
-                end
                 local P=N("Frame",{Name="P"..I,BackgroundColor3=Col,BorderSizePixel=0,
-                    Position=UDim2.fromOffset(PX,PY),Size=UDim2.fromOffset(PW,PH),
+                    Position=UDim2.fromOffset(X,Y),Size=UDim2.fromOffset(W,H),
                     Rotation=R or 0,ZIndex=235},Icon)
-                C(P,math.max(.85,(Rad or 1)*Scale))
+                C(P,Rad or math.min(W,H)/2)
                 P:SetAttribute("QuickBaseColor",Col); Parts[I]=P
             end,Keys[Name] or "work")
             return Icon,Parts
@@ -41798,7 +42324,9 @@ do
         end
         S.NormalizeActivityIconKey=function(Key,Title,Detail,StateText)
             Key=string.lower(tostring(Key or ""))
-            local Supported={combat=true,raid=true,fruit=true,fish=true,boss=true,travel=true,fly=true,noclip=true,chams=true,level=true,care=true,coin=true,hidden=true,shield=true,work=true,idle=true}
+            local Aliases={sleepy="moon",hungry="food",thirsty="water",dirty="water",rank="up",invisible="hidden",farming="combat",quest="work"}
+            Key=Aliases[Key] or Key
+            local Supported={combat=true,raid=true,fruit=true,fish=true,boss=true,travel=true,fly=true,noclip=true,chams=true,level=true,care=true,coin=true,hidden=true,shield=true,work=true,idle=true,moon=true,food=true,water=true,up=true,player=true}
             if Supported[Key] then return Key end
             local Text=string.lower(table.concat({tostring(Title or ""),tostring(Detail or ""),tostring(StateText or "")}," "))
             if Text:find("noclip",1,true) or Text:find("no clip",1,true) then return "noclip" end
@@ -41809,6 +42337,10 @@ do
             if Text:find("fish",1,true) then return "fish" end
             if Text:find("boss",1,true) or Text:find("elite",1,true) then return "boss" end
             if Text:find("level up",1,true) then return "level" end
+            if Text:find("rank",1,true) or Text:find("leveling",1,true) then return "up" end
+            if Text:find("sleep",1,true) or Text:find("bed",1,true) then return "moon" end
+            if Text:find("hungry",1,true) or Text:find("feed",1,true) then return "food" end
+            if Text:find("thirst",1,true) or Text:find("shower",1,true) or Text:find("dirty",1,true) then return "water" end
             if Text:find("coin",1,true) or Text:find("gold",1,true) then return "coin" end
             if Text:find("care",1,true) or Text:find("pet",1,true) or Text:find("need",1,true) then return "care" end
             if Text:find("survive",1,true) or Text:find("guard",1,true) or Text:find("protect",1,true) or Text:find("shield",1,true) then return "shield" end
@@ -41831,9 +42363,7 @@ do
                     if ProviderIdle then
                         local QuickInfo,QuickCount=nil,0
                         if S.GetQuickActivityInfo then QuickInfo,QuickCount=S.GetQuickActivityInfo() end
-                        if type(QuickInfo)=="table" then
-                            Info=QuickInfo
-                        elseif tonumber(QuickCount) and QuickCount>=2 then
+                        if tonumber(QuickCount) and QuickCount>=2 then
                             local ProfileIdle={}
                             for K,V in pairs(Info) do ProfileIdle[K]=V end
                             ProfileIdle.Title=tostring((PlaceInfo and PlaceInfo.Name) or "BananiHub")
@@ -41846,11 +42376,30 @@ do
                             Info=ProfileIdle
                         end
                     end
+                    local FeatureTitle=string.lower(tostring(Info.Title or ""))
+                    if (FeatureTitle:find("invisible",1,true) or FeatureTitle:find("noclip",1,true)
+                        or FeatureTitle:find("chams",1,true) or FeatureTitle:find("player esp",1,true)
+                        or FeatureTitle:find(" • fly",1,true)) and tostring(Info.IconKey or "")~="level" then
+                        Info={Title=tostring((PlaceInfo and PlaceInfo.Name) or "BananiHub"),
+                            Detail="",Progress=0,State="Ready",IconKey="idle",
+                            Kind=tostring(Runtime.DetectedGameProfileKind or "Universal")}
+                    end
                     local Title=tostring(Info.Title or "BananiHub")
                     local Detail=tostring(Info.Detail or "")
                     local StateText=tostring(Info.State or "")
                     local IconKey=tostring(Info.IconKey or "idle")
-                    local Progress=math.clamp(tonumber(Info.Progress) or 0,0,1)
+                    local RawProgress=tonumber(Info.Progress)
+                    local ValidProgress=RawProgress and RawProgress==RawProgress and math.abs(RawProgress)<math.huge
+                    local Progress=ValidProgress and math.clamp(RawProgress,0,1) or 0
+                    if not ValidProgress then
+                        -- Some status providers reuse/freeze their results. Sanitize a copy
+                        -- without touching the original or sending NaN into UI tweens.
+                        local SafeInfo={}
+                        for K,V in pairs(Info) do SafeInfo[K]=V end
+                        SafeInfo.Progress=0
+                        SafeInfo.ProgressMode=nil
+                        Info=SafeInfo
+                    end
 
                     -- v5.18.63 hard guard: fruit detection/collection belongs ONLY to the separate
                     -- fruit notification. Even an old/custom status provider cannot make fruit take
@@ -41997,9 +42546,9 @@ do
             end
             local QuickInfo,QuickCount=nil,0
             if S.GetQuickActivityInfo then QuickInfo,QuickCount=S.GetQuickActivityInfo() end
-            if type(QuickInfo)=="table" then
-                return tostring(QuickInfo.Title or "Player Feature"),"Active",true,QuickInfo
-            elseif tonumber(QuickCount) and QuickCount>=2 then
+            -- Quick player utilities appear as controls, never as an automated live task.
+            -- Even a single Fly/Invisibility toggle must not displace farm progress.
+            if tonumber(QuickCount) and QuickCount>=2 then
                 local GameName=tostring((PlaceInfo and PlaceInfo.Name) or "BananiHub")
                 if tostring(Runtime.DetectedGameProfileKind or "")=="BuildABoat" then GameName="Build A Boat" end
                 return GameName,"Ready",false,{Title=GameName,Detail="",State="Ready",Progress=0,IconKey="idle",Kind=tostring(Runtime.DetectedGameProfileKind or "Universal")}
@@ -42791,7 +43340,7 @@ do
         function StartExpandedNotchIdleClose(ExpansionToken)
             NotchIdleCloseGeneration+=1
             local Generation=NotchIdleCloseGeneration
-            local IdleSeconds=math.max(.25,tonumber(Runtime.PremiumPolish and Runtime.PremiumPolish.ExpandedAutoCloseSeconds) or 1.5)
+            local IdleSeconds=math.max(.25,tonumber(Runtime.PremiumPolish and Runtime.PremiumPolish.ExpandedAutoCloseSeconds) or 1.25)
             MarkNotchInteraction()
             task.spawn(function()
                 while Gui.Parent and Generation==NotchIdleCloseGeneration and ExpansionToken==NotchMiniToken and NotchMiniExpanded do
@@ -42829,8 +43378,8 @@ do
             -- disappears, the single task icon morphs into the header, then expanded information reveals.
             local CompactNotchSize=UDim2.fromOffset(336,48)
             local ExpandedNotchSize=UDim2.fromOffset(402,202)
-            local FinalMiniPosition=UDim2.new(.5,0,0,20)
-            local StartMiniPosition=UDim2.new(.5,0,0,26)
+            local FinalMiniPosition=S.GetNotchMiniOffset(false)
+            local StartMiniPosition=S.GetNotchMiniOffset(true)
             local FinalMiniSize=UDim2.fromOffset(402,182)
             local MotionMode=tostring(Runtime.AnimationMode or "Smooth")
             local SmoothOneSecondMorph=(Runtime.ReducedMotion~=true and MotionMode=="Smooth")
@@ -43161,7 +43710,8 @@ do
             local ShowIcon=Active and IconKey~="idle"
             AnimateActivityIcon(IconKey,"",ShowIcon,(Palette and Palette.Accent) or Theme.GoldSoft)
 
-            local Progress=Info and math.clamp(tonumber(Info.Progress) or 0,0,1) or 0
+            local RawProgress=Info and tonumber(Info.Progress)
+            local Progress=(RawProgress and RawProgress==RawProgress and math.abs(RawProgress)<math.huge) and math.clamp(RawProgress,0,1) or 0
             local ShowProgress=(not NotchMiniExpanded) and (not LevelUpDropActive) and Active and Progress>0 and Progress<1
             NotchUI.ProgressTrack.Visible=ShowProgress
             if ShowProgress then
@@ -43685,7 +44235,7 @@ do
                 if PUIS.MouseEnabled then SetNotchHoverIntent(true) end
                 if Button.TextTransparency>=.40 or Runtime.ReducedMotion==true then return end
                 Tw(Button,.14,{BackgroundColor3=Color3.fromRGB(29,30,34)},Enum.EasingStyle.Quart,Enum.EasingDirection.Out)
-                Tw(ScaleObj,.14,{Scale=1.004},Enum.EasingStyle.Quart,Enum.EasingDirection.Out)
+                Tw(ScaleObj,.14,{Scale=1},Enum.EasingStyle.Quart,Enum.EasingDirection.Out)
             end))
             trackPremiumConnection(Button.MouseLeave:Connect(function()
                 -- The expanded controller owns hover/collapse. Leaving one child button must not
@@ -43717,7 +44267,7 @@ do
                     ScaleObj.Scale=1
                     return
                 end
-                Tw(ScaleObj,.095,{Scale=1.002},Enum.EasingStyle.Quart,Enum.EasingDirection.Out)
+                Tw(ScaleObj,.095,{Scale=1},Enum.EasingStyle.Quart,Enum.EasingDirection.Out)
                 task.delay(S.MotionDelay(.065),function()
                     if Button.Parent and Token==PressToken then Tw(ScaleObj,.085,{Scale=1},Enum.EasingStyle.Sine,Enum.EasingDirection.Out) end
                 end)
@@ -43740,8 +44290,19 @@ do
             RunNotchAction(2)
         end))
         task.spawn(function()
+            local LastNotchError=""
+            local LastNotchErrorAt=0
             while Gui.Parent do
-                RefreshNotch()
+                local OK,Err=pcall(RefreshNotch)
+                if not OK then
+                    local Message=tostring(Err)
+                    local Now=os.clock()
+                    if Message~=LastNotchError or Now-LastNotchErrorAt>8 then
+                        warn("[BH:NOTCH] live activity refresh failed: "..Message)
+                        LastNotchError=Message
+                        LastNotchErrorAt=Now
+                    end
+                end
                 -- HP itself is event-driven now; this loop only refreshes telemetry/automation state
                 -- and catches rare Humanoid swaps (for example proxy/invisibility transitions).
                 local WaitTime
@@ -43932,8 +44493,10 @@ do
             local PageY=tonumber(S.CompactContentPageY) or 160
             local GroupY,BodyY
             if Spec.Name=="PhoneLandscape" then
-                GroupY=PageY+36
-                BodyY=GroupY+(WithGroups and 44 or 0)
+                -- The selected tab is already visible in the sidebar. Reclaim its
+                -- redundant page-title row so short phones can show more controls.
+                GroupY=PageY+2
+                BodyY=GroupY+(WithGroups and 39 or 0)
             elseif Spec.Name=="PhonePortrait" then
                 GroupY=PageY+44
                 BodyY=GroupY+(WithGroups and 44 or 0)
@@ -44022,7 +44585,7 @@ do
             GameTitle.Size=PhonePortrait and UDim2.new(1,-34,0,24) or ((S.TouchLayout and Spec.ShowTopStats) and UDim2.new(1,-440,0,24) or UDim2.new(1,-125,0,24))
             GameSub.Size=PhonePortrait and UDim2.new(1,-34,0,19) or (Spec.ShowTopStats and UDim2.new(1,-440,0,19) or UDim2.new(1,-128,0,19))
             if Spec.Touch and not PhonePortrait and Spec.ShowTopStats then TopStats.Position=UDim2.new(1,-312,0,56) else TopStats.Position=UDim2.new(1,-312,0,32) end
-            local SearchY=PhoneLandscape and (S.TouchTargetLogical+8) or (PhonePortrait and math.max(65,(S.TouchTargetLogical or 52)+10) or 112)
+            local SearchY=PhoneLandscape and math.max(50,(S.TouchTargetLogical or 52)+2) or (PhonePortrait and math.max(62,(S.TouchTargetLogical or 52)+7) or 112)
             local PageY=(PhonePortrait or PhoneLandscape) and (SearchY+49) or 160
             S.CompactContentPageY=PageY
             FeatureSearchWrap.Position=UDim2.fromOffset(17,SearchY)
@@ -44034,6 +44597,7 @@ do
             FeatureSearchClear.Size=S.TouchLayout and UDim2.fromOffset(40,40) or UDim2.fromOffset(32,32)
             FeatureSearchClear.Position=S.TouchLayout and UDim2.new(1,-45,0,4) or UDim2.new(1,-39,0,5)
             PageTitle.Size=UDim2.new(1,-34,0,26)
+            PageTitle.Visible=not PhoneLandscape
             PageSub.Size=UDim2.new(1,-34,0,18)
             local ShowRail=(S.Page=="Main") and Spec.ShowRail==true
             Rail.Visible=ShowRail
@@ -44431,7 +44995,7 @@ do
             Visuals={["Player ESP"]=1,["Items / Alerts"]=2,["NPC ESP"]=3,Visuals=4,["World / Performance"]=5,Camera=6,["UI Editor"]=7},
             Stats={["Live Profile"]=1},
             Teleports={Players=1,Travel=2,Waypoints=3,Routes=4,["Quick Save"]=5,Tool=6},
-            Settings={Pinned=1,Keybinds=2,Appearance=3,Configs=4,Diagnostics=5,Guide=6,Reset=7,Settings=8},
+            Settings={Diagnostics=1,Pinned=2,Keybinds=3,Appearance=4,Configs=5,Guide=6,Reset=7,Settings=8},
         }
         function IsSimpleGameTuningRecord(Page,Record)
             if Runtime.SimpleGameMode~=true or Page~="Game" or not Record then return false end
@@ -44521,20 +45085,13 @@ do
             local Card=N("Frame",{BackgroundColor3=Theme.Panel,BorderSizePixel=0,Size=UDim2.new(1,0,0,54),AutomaticSize=Enum.AutomaticSize.Y,LayoutOrder=Order},Cards)
             S.SectionCards[SectionKey]=Card
             C(Card,IsLiveProfile and 12 or 9)
-            St(Card,IsLiveProfile and Theme.Gold or Color3.fromRGB(67,61,51),IsLiveProfile and 1.15 or 1,IsLiveProfile and .22 or .43)
-            if IsLiveProfile then G(Card,Color3.fromRGB(48,36,20),Color3.fromRGB(15,15,17),105)
-            else G(Card,Color3.fromRGB(29,27,23),Color3.fromRGB(17,17,19),90) end
-            Card.BackgroundTransparency=.30
-            local CardScale=N("UIScale",{Scale=.972},Card)
-            task.delay(math.min((tonumber(Order) or 1)-1,8)*0.030,function()
-                if Card.Parent then
-                    Tw(Card,.28,{BackgroundTransparency=0},Enum.EasingStyle.Sine,Enum.EasingDirection.Out)
-                    Spring(CardScale,{Scale=1},.32)
-                end
-            end)
+            St(Card,IsLiveProfile and Theme.Gold or Color3.fromRGB(72,74,81),1,IsLiveProfile and .27 or .50)
+            -- Use a stable flat panel. Animating UI scales on text-containing cards
+            -- repeatedly rasterized small text between pixels on compact displays.
+            Card.BackgroundTransparency=0
             local HeaderText=IsLiveProfile and "✦  Live Profile" or Name
-            local H=T(Card,HeaderText,IsLiveProfile and 14.6 or 13.1,IsLiveProfile and Theme.GoldSoft or Theme.Text,Enum.TextXAlignment.Left,Enum.Font.GothamBold); H.Position=UDim2.fromOffset(12,8); H.Size=UDim2.new(1,-47,0,20)
-            local Holder=N("Frame",{BackgroundTransparency=1,Position=UDim2.fromOffset(10,IsLiveProfile and 37 or 34),Size=UDim2.new(1,-20,0,0),AutomaticSize=Enum.AutomaticSize.Y},Card); local L=N("UIListLayout",{Padding=UDim.new(0,IsLiveProfile and 7 or 5),SortOrder=Enum.SortOrder.LayoutOrder},Holder); Pad(Card,0,0,0,12)
+            local H=T(Card,HeaderText,IsLiveProfile and 14.6 or 13.1,IsLiveProfile and Theme.GoldSoft or Theme.Text,Enum.TextXAlignment.Left,Enum.Font.GothamBold); H.Position=UDim2.fromOffset(14,9); H.Size=UDim2.new(1,-56,0,22)
+            local Holder=N("Frame",{BackgroundTransparency=1,Position=UDim2.fromOffset(10,IsLiveProfile and 38 or 36),Size=UDim2.new(1,-20,0,0),AutomaticSize=Enum.AutomaticSize.Y},Card); local L=N("UIListLayout",{Padding=UDim.new(0,IsLiveProfile and 8 or 6),SortOrder=Enum.SortOrder.LayoutOrder},Holder); Pad(Card,0,0,0,12)
             local Toggle=N("TextButton",{Name="CollapseSection",BackgroundTransparency=1,Text="",AutoButtonColor=false,Size=UDim2.new(1,0,0,32),ZIndex=24},Card)
             local Arrow=T(Toggle,"⌄",18,Theme.GoldSoft,Enum.TextXAlignment.Center,Enum.Font.GothamBold)
             Arrow.Position=UDim2.new(1,-38,0,4); Arrow.Size=UDim2.fromOffset(28,22); Arrow.ZIndex=25
@@ -44584,14 +45141,8 @@ do
             local Base=Color3.fromRGB(27,27,29)
             H=tonumber(H) or 39
             if S.TouchLayout then H=math.max(H,(S.TouchTargetLogical or 52)+6) end
-            local R=N("Frame",{BackgroundColor3=Base,BackgroundTransparency=.08,BorderSizePixel=0,Size=UDim2.new(1,0,0,H),LayoutOrder=Order or 1},Parent); C(R,7); St(R,Color3.fromRGB(65,61,54),1,.50); hover(R,Base)
-            local RowScale=N("UIScale",{Scale=.992},R)
-            task.defer(function()
-                if R.Parent then
-                    Tw(R,.20,{BackgroundTransparency=0},Enum.EasingStyle.Sine,Enum.EasingDirection.Out)
-                    Spring(RowScale,{Scale=1},.23)
-                end
-            end)
+            local R=N("Frame",{BackgroundColor3=Base,BackgroundTransparency=0,BorderSizePixel=0,Size=UDim2.new(1,0,0,H),LayoutOrder=Order or 1},Parent)
+            C(R,7); St(R,Color3.fromRGB(72,74,81),1,.65); hover(R,Base)
             return R
         end
         function bindSync(F) table.insert(S.Bindings,F) end
@@ -44656,12 +45207,17 @@ do
             local TouchH=S.TouchLayout and (S.TouchTargetLogical or 52) or 22
             local MobileRun=S.LayoutSpec and (S.LayoutSpec.Name=="PhonePortrait" or S.LayoutSpec.Name=="PhoneLandscape")
             local RunWidth=MobileRun and 60 or 90
-            local Row=rowBase(Parent,S.TouchLayout and (TouchH+8) or 42,Order,R); local L=T(Row,cleanName(R.Name),10.6,Theme.Text,Enum.TextXAlignment.Left,Enum.Font.GothamMedium); L.Position=UDim2.fromOffset(10,0); L.Size=UDim2.new(1,S.TouchLayout and -(RunWidth+21) or -91,1,0)
+            local IsRunTests=R.Tab=="Settings" and R.Name=="Run All Tests"
+            local Row=rowBase(Parent,MobileRun and (TouchH+39) or (S.TouchLayout and (TouchH+8) or 42),Order,R)
+            if IsRunTests then Row.BackgroundColor3=Color3.fromRGB(47,36,24) end
+            local L=T(Row,cleanName(R.Name),MobileRun and 12.5 or 10.6,Theme.Text,Enum.TextXAlignment.Left,Enum.Font.GothamMedium)
+            L.Position=UDim2.fromOffset(10,MobileRun and 6 or 0)
+            L.Size=MobileRun and UDim2.new(1,-20,0,28) or UDim2.new(1,S.TouchLayout and -(RunWidth+21) or -91,1,0)
             L.TextWrapped=S.TouchLayout; L.TextYAlignment=Enum.TextYAlignment.Center
-            local B=N("TextButton",{BackgroundColor3=Color3.fromRGB(29,30,34),AutoButtonColor=false,Text="RUN",TextSize=S.TouchLayout and 10.4 or 9.8,TextColor3=Theme.Text,Font=Enum.Font.GothamMedium,Position=S.TouchLayout and UDim2.new(1,-(RunWidth+11),.5,-TouchH/2) or UDim2.new(1,-79,.5,-11),Size=S.TouchLayout and UDim2.fromOffset(RunWidth,TouchH) or UDim2.fromOffset(68,22)},Row); C(B,7); St(B,Color3.fromRGB(82,84,92),1,.30)
+            local B=N("TextButton",{BackgroundColor3=IsRunTests and Theme.Gold or Color3.fromRGB(29,30,34),AutoButtonColor=false,Text=IsRunTests and "RUN TESTS" or (MobileRun and "TAP TO RUN" or "RUN"),TextSize=MobileRun and 12.3 or (S.TouchLayout and 10.4 or 9.8),TextColor3=IsRunTests and Color3.fromRGB(25,20,14) or Theme.Text,Font=Enum.Font.GothamMedium,Position=MobileRun and UDim2.new(0,10,0,34) or (S.TouchLayout and UDim2.new(1,-(RunWidth+11),.5,-TouchH/2) or UDim2.new(1,-79,.5,-11)),Size=MobileRun and UDim2.new(1,-20,0,TouchH) or (S.TouchLayout and UDim2.fromOffset(RunWidth,TouchH) or UDim2.fromOffset(68,22))},Row); C(B,7); St(B,IsRunTests and Theme.GoldSoft or Color3.fromRGB(82,84,92),1,.30)
             local ButtonScale=N("UIScale",{Scale=1},B)
-            B.MouseEnter:Connect(function() Tw(B,.16,{BackgroundColor3=Color3.fromRGB(34,35,40)},Enum.EasingStyle.Quint,Enum.EasingDirection.Out); AppleHover(ButtonScale,true,1.006) end)
-            B.MouseLeave:Connect(function() Tw(B,.20,{BackgroundColor3=Color3.fromRGB(29,30,34)},Enum.EasingStyle.Quint,Enum.EasingDirection.Out); AppleHover(ButtonScale,false) end)
+            B.MouseEnter:Connect(function() Tw(B,.16,{BackgroundColor3=IsRunTests and Theme.GoldSoft or Color3.fromRGB(34,35,40)},Enum.EasingStyle.Quint,Enum.EasingDirection.Out); AppleHover(ButtonScale,true,1.006) end)
+            B.MouseLeave:Connect(function() Tw(B,.20,{BackgroundColor3=IsRunTests and Theme.Gold or Color3.fromRGB(29,30,34)},Enum.EasingStyle.Quint,Enum.EasingDirection.Out); AppleHover(ButtonScale,false) end)
             B.MouseButton1Down:Connect(function() Tw(ButtonScale,.060,{Scale=.982},Enum.EasingStyle.Quint,Enum.EasingDirection.In) end)
             B.MouseButton1Up:Connect(function() Spring(ButtonScale,{Scale=1},.15) end)
             B.Activated:Connect(function()
@@ -44671,10 +45227,11 @@ do
         end
         function renderToggle(Parent,R,Order)
             local TouchH=S.TouchLayout and (S.TouchTargetLogical or 52) or 20
-            local SwitchW=S.TouchLayout and math.max(66,TouchH+18) or 40
-            local Row=rowBase(Parent,S.TouchLayout and (TouchH+8) or 42,Order,R); local L=T(Row,cleanName(R.Name),10.6,Theme.Text,Enum.TextXAlignment.Left,Enum.Font.GothamMedium); L.Position=UDim2.fromOffset(10,0); L.Size=UDim2.new(1,S.TouchLayout and -(SwitchW+24) or -70,1,0); L.TextWrapped=S.TouchLayout; L.TextYAlignment=Enum.TextYAlignment.Center
+            local MobileToggle=S.LayoutSpec and (S.LayoutSpec.Name=="PhonePortrait" or S.LayoutSpec.Name=="PhoneLandscape")
+            local SwitchW=S.TouchLayout and (MobileToggle and math.max(58,TouchH+4) or math.max(66,TouchH+18)) or 40
+            local Row=rowBase(Parent,S.TouchLayout and (TouchH+8) or 42,Order,R); local L=T(Row,cleanName(R.Name),MobileToggle and 12.0 or 10.6,Theme.Text,Enum.TextXAlignment.Left,Enum.Font.GothamMedium); L.Position=UDim2.fromOffset(10,0); L.Size=UDim2.new(1,S.TouchLayout and -(SwitchW+24) or -70,1,0); L.TextWrapped=S.TouchLayout; L.TextYAlignment=Enum.TextYAlignment.Center
             local Switch=N("TextButton",{BackgroundColor3=Color3.fromRGB(59,60,64),AutoButtonColor=false,Text="",Position=S.TouchLayout and UDim2.new(1,-(SwitchW+11),.5,-TouchH/2) or UDim2.new(1,-51,.5,-10),Size=S.TouchLayout and UDim2.fromOffset(SwitchW,TouchH) or UDim2.fromOffset(40,20)},Row); C(Switch,S.TouchLayout and math.floor(TouchH/2) or 11)
-            local KnobSize=S.TouchLayout and math.max(24,TouchH-8) or 16
+            local KnobSize=S.TouchLayout and (MobileToggle and math.max(26,TouchH-19) or math.max(24,TouchH-8)) or 16
             local Knob=N("Frame",{BackgroundColor3=Color3.fromRGB(248,248,250),BorderSizePixel=0,Position=S.TouchLayout and UDim2.fromOffset(4,4) or UDim2.fromOffset(2,2),Size=UDim2.fromOffset(KnobSize,KnobSize)},Switch); C(Knob,S.TouchLayout and math.floor(KnobSize/2) or 8)
             local KnobScale=N("UIScale",{Scale=1},Knob)
             local Last=nil
@@ -44790,8 +45347,8 @@ do
         function renderDropdown(Parent,R,Order)
             local IsStats=S.Page=="Stats"
             local Row=rowBase(Parent,IsStats and 48 or 43,Order,R)
-            local L=T(Row,cleanName(R.Name),IsStats and 11.0 or 10.0,Theme.Text,Enum.TextXAlignment.Left,Enum.Font.GothamMedium); L.Position=UDim2.fromOffset(10,0); L.Size=UDim2.new(.47,-10,1,0); L.TextWrapped=S.TouchLayout; L.TextYAlignment=Enum.TextYAlignment.Center
-            local B=N("TextButton",{BackgroundColor3=Color3.fromRGB(24,24,27),AutoButtonColor=false,Text="",TextSize=IsStats and 10.8 or 10.2,TextColor3=Theme.GoldSoft,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left,Position=S.TouchLayout and UDim2.new(.47,0,.5,-((S.TouchTargetLogical or 52)/2)) or UDim2.new(.47,0,.5,-13),Size=S.TouchLayout and UDim2.new(.53,-10,0,(S.TouchTargetLogical or 52)) or UDim2.new(.53,-10,0,26)},Row); C(B,6); St(B,Color3.fromRGB(70,66,58),1,.35); Pad(B,7,18,0,0)
+            local L=T(Row,cleanName(R.Name),S.TouchLayout and 11.8 or (IsStats and 11.0 or 10.0),Theme.Text,Enum.TextXAlignment.Left,Enum.Font.GothamMedium); L.Position=UDim2.fromOffset(10,0); L.Size=UDim2.new(.47,-10,1,0); L.TextWrapped=S.TouchLayout; L.TextYAlignment=Enum.TextYAlignment.Center
+            local B=N("TextButton",{BackgroundColor3=Color3.fromRGB(24,24,27),AutoButtonColor=false,Text="",TextSize=S.TouchLayout and 11.6 or (IsStats and 10.8 or 10.2),TextColor3=Theme.GoldSoft,Font=Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left,Position=S.TouchLayout and UDim2.new(.47,0,.5,-((S.TouchTargetLogical or 52)/2)) or UDim2.new(.47,0,.5,-13),Size=S.TouchLayout and UDim2.new(.53,-10,0,(S.TouchTargetLogical or 52)) or UDim2.new(.53,-10,0,26)},Row); C(B,6); St(B,Color3.fromRGB(70,66,58),1,.35); Pad(B,7,18,0,0)
             local Arrow=T(B,"v",11,Theme.Muted,Enum.TextXAlignment.Center); Arrow.AnchorPoint=Vector2.new(1,0); Arrow.Position=UDim2.new(1,0,0,0); Arrow.Size=UDim2.fromOffset(20,24)
             local function selected()
                 local O=R.Obj and R.Obj.CurrentOption or {}; if type(O)~="table" then O={tostring(O)} end
@@ -45951,7 +46508,9 @@ do
                 PointerStateHealthy=(TouchCount==0 and not S.NotchTouchInside) or (TouchCount>0 and S.NotchTouchInput~=nil),
                 TitlebarTouchTargetsHealthy=Min.Size.X.Offset>=30 and Max.Size.X.Offset>=30 and Close.Size.X.Offset>=30,
                 WindowFitsViewport=(View.X<=0 or WindowRenderSize.X<=View.X+1) and (View.Y<=0 or WindowRenderSize.Y<=View.Y+1),
-                ExpandedNotchFitsViewport=(View.X<=0 or (402*NotchRenderScale)<=View.X-4),
+                ExpandedNotchFitsViewport=(View.X<=0 or (402*NotchRenderScale)<=View.X-4)
+                    and (View.Y<=0 or (202*NotchRenderScale+S.GetNotchTopY())<=View.Y-4),
+                NotchTopSafe=S.GetNotchTopY()>=0 and Notch.Position.Y.Offset>=0,
                 NotchResponsiveScale=NotchRenderScale,
                 ResponsiveProfile=S.LayoutSpec and S.LayoutSpec.Name or "Unknown",
                 SafeAreaAware=Gui.ScreenInsets==Enum.ScreenInsets.CoreUISafeInsets,
@@ -45971,6 +46530,7 @@ do
             Gui=Gui,Window=WindowFrame,Notch=Notch,SelectPage=selectPage,SetVisible=setVisible,SetNotchVisible=SetNotchVisible,
             Refresh=function() refreshHeader(); RefreshNotch(); selectPage(S.Page,true,S.Group) end,
             GetUIHealth=S.GetPremiumUIHealth,
+            NormalizeActivityIconKey=S.NormalizeActivityIconKey,
             GetGameArt=function() return GameArt end,
             GetTelemetry=function() return {FPS=LiveTelemetry.FPS,Ping=LiveTelemetry.Ping,UpdatedAt=LiveTelemetry.UpdatedAt} end,
             UsesOriginalBackend=false,DefaultMenuKey="L"
